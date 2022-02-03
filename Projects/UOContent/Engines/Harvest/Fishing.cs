@@ -535,6 +535,12 @@ namespace Server.Engines.Harvest
                 return false;
             }
 
+            if (tool.Parent != from)
+            {
+                from.SendMessage("You need to equip the fishing pole to fish.");
+                return false;
+            }
+
             if (from.Mounted)
             {
                 from.SendLocalizedMessage(500971); // You can't fish while riding!
@@ -548,6 +554,12 @@ namespace Server.Engines.Harvest
         {
             if (!base.CheckHarvest(from, tool, def, toHarvest))
             {
+                return false;
+            }
+
+            if (tool.Parent != from)
+            {
+                from.SendMessage("You need to equip the fishing pole to fish.");
                 return false;
             }
 

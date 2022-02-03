@@ -300,6 +300,13 @@ namespace Server.Engines.Harvest
                 return false;
             }
 
+
+            if (tool.Parent != from)
+            {
+                from.SendMessage("You need to equip a pickaxe to mine.");
+                return false;
+            }
+
             if (from.Mounted)
             {
                 from.SendLocalizedMessage(501864); // You can't mine while riding.
