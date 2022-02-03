@@ -175,21 +175,23 @@ namespace Server.Items
 
         public virtual void BeginConfirmation(Mobile from)
         {
-            if (IsInTown(from.Location, from.Map) && !IsInTown(Target, TargetMap) ||
-                from.Map != Map.Felucca && TargetMap == Map.Felucca && ShowFeluccaWarning)
-            {
-                if (from.AccessLevel == AccessLevel.Player || !from.Hidden)
-                {
-                    from.SendSound(0x20E, from);
-                }
+            //if (IsInTown(from.Location, from.Map) && !IsInTown(Target, TargetMap) ||
+            //    from.Map != Map.Felucca && TargetMap == Map.Felucca && ShowFeluccaWarning)
+            //{
+            //    if (from.AccessLevel == AccessLevel.Player || !from.Hidden)
+            //    {
+            //        from.SendSound(0x20E, from);
+            //    }
 
-                from.CloseGump<MoongateConfirmGump>();
-                from.SendGump(new MoongateConfirmGump(from, this));
-            }
-            else
-            {
-                EndConfirmation(from);
-            }
+            //    from.CloseGump<MoongateConfirmGump>();
+            //    from.SendGump(new MoongateConfirmGump(from, this));
+            //}
+            //else
+            //{
+            //    EndConfirmation(from);
+            //}
+            from.SendSound(0x20E, from);
+            EndConfirmation(from);
         }
 
         public virtual void EndConfirmation(Mobile from)
