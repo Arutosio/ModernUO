@@ -9,8 +9,8 @@ namespace Server.Mobiles
         {
             InitStats(31, 41, 51);
 
+            SetSpeed(0.2, 0.4);
             SpeechHue = Utility.RandomDyedHue();
-
             Hue = Race.Human.RandomSkinHue();
 
             if (Female = Utility.RandomBool())

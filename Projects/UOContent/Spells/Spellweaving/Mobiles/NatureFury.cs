@@ -5,8 +5,7 @@ namespace Server.Mobiles
     public class NatureFury : BaseCreature
     {
         [Constructible]
-        public NatureFury()
-            : base(AIType.AI_Melee)
+        public NatureFury() : base(AIType.AI_Melee)
         {
             Body = 0x33;
             Hue = 0x4001;

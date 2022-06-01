@@ -21,7 +21,6 @@ using Server.Spells.Necromancy;
 using Server.Spells.Sixth;
 using Server.Spells.Spellweaving;
 using Server.Targeting;
-using Server.Utilities;
 
 namespace Server.Mobiles
 {
@@ -249,9 +248,6 @@ namespace Server.Mobiles
             typeof(Gold)
         };
 
-        private readonly List<Type> m_SpellAttack;  // List of attack spell/power
-        private readonly List<Type> m_SpellDefense; // List of defensive spell/power
-
         private bool _summoned;
 
         private bool m_bTamable;
@@ -324,9 +320,7 @@ namespace Server.Mobiles
             AIType ai,
             FightMode mode = FightMode.Closest,
             int iRangePerception = 10,
-            int iRangeFight = 1,
-            double activeSpeed = -1,
-            double passiveSpeed = -1
+            int iRangeFight = 1
         )
         {
             if (iRangePerception == OldRangePerception)
@@ -344,23 +338,11 @@ namespace Server.Mobiles
 
             FightMode = mode;
 
+            ResetSpeeds();
+
             m_Team = 0;
 
-            if (passiveSpeed < 0 || activeSpeed < 0)
-            {
-                ResetSpeeds();
-            }
-            else
-            {
-                ActiveSpeed = activeSpeed;
-                PassiveSpeed = passiveSpeed;
-                CurrentSpeed = passiveSpeed;
-            }
-
             Debug = false;
-
-            m_SpellAttack = new List<Type>();
-            m_SpellDefense = new List<Type>();
 
             m_Controlled = false;
             m_ControlMaster = null;
@@ -389,9 +371,6 @@ namespace Server.Mobiles
 
         public BaseCreature(Serial serial) : base(serial)
         {
-            m_SpellAttack = new List<Type>();
-            m_SpellDefense = new List<Type>();
-
             Debug = false;
         }
 
@@ -686,15 +665,22 @@ namespace Server.Mobiles
         public double PassiveSpeed { get; set; }
 
         [CommandProperty(AccessLevel.GameMaster)]
+        public double SpeedMod { get; set; }
+
+        [CommandProperty(AccessLevel.GameMaster)]
         public double CurrentSpeed
         {
-            get => TargetLocation != null ? 0.3 : m_CurrentSpeed;
+            get => TargetLocation != null ? 0.3 : SpeedMod <= 0 ? m_CurrentSpeed : SpeedMod;
             set
             {
                 if (m_CurrentSpeed != value)
                 {
                     m_CurrentSpeed = value;
-                    AIObject?.OnCurrentSpeedChanged();
+
+                    if (SpeedMod <= 0)
+                    {
+                        AIObject?.OnCurrentSpeedChanged();
+                    }
                 }
             }
         }
@@ -887,6 +873,8 @@ namespace Server.Mobiles
 
         public virtual bool ReturnsToHome =>
             SeeksHome && Home != Point3D.Zero && !m_ReturnQueued && !Controlled && !Summoned;
+
+        public virtual bool ScaleSpeedByDex => NPCSpeeds.ScaleSpeedByDex && !IsMonster;
 
         // used for deleting untamed creatures [in houses]
         [CommandProperty(AccessLevel.GameMaster)]
@@ -1370,6 +1358,15 @@ namespace Server.Mobiles
             }
         }
 
+        public override void OnRawDexChange(int oldValue)
+        {
+            // This only really happens for pets or when a GM modifies a mob.
+            if (oldValue != RawDex && ScaleSpeedByDex)
+            {
+                ResetSpeeds();
+            }
+        }
+
         public override void OnBeforeSpawn(Point3D location, Map m)
         {
             if (Paragon.CheckConvert(this, location, m))
@@ -1628,23 +1625,35 @@ namespace Server.Mobiles
                     switch (sc)
                     {
                         case ScaleType.Red:
-                            corpse.AddCarvedItem(new RedScales(scales), from);
-                            break;
+                            {
+                                corpse.AddCarvedItem(new RedScales(scales), from);
+                                break;
+                            }
                         case ScaleType.Yellow:
-                            corpse.AddCarvedItem(new YellowScales(scales), from);
-                            break;
+                            {
+                                corpse.AddCarvedItem(new YellowScales(scales), from);
+                                break;
+                            }
                         case ScaleType.Black:
-                            corpse.AddCarvedItem(new BlackScales(scales), from);
-                            break;
+                            {
+                                corpse.AddCarvedItem(new BlackScales(scales), from);
+                                break;
+                            }
                         case ScaleType.Green:
-                            corpse.AddCarvedItem(new GreenScales(scales), from);
-                            break;
+                            {
+                                corpse.AddCarvedItem(new GreenScales(scales), from);
+                                break;
+                            }
                         case ScaleType.White:
-                            corpse.AddCarvedItem(new WhiteScales(scales), from);
-                            break;
+                            {
+                                corpse.AddCarvedItem(new WhiteScales(scales), from);
+                                break;
+                            }
                         case ScaleType.Blue:
-                            corpse.AddCarvedItem(new BlueScales(scales), from);
-                            break;
+                            {
+                                corpse.AddCarvedItem(new BlueScales(scales), from);
+                                break;
+                            }
                         case ScaleType.All:
                             {
                                 corpse.AddCarvedItem(new RedScales(scales), from);
@@ -1673,7 +1682,7 @@ namespace Server.Mobiles
         {
             base.Serialize(writer);
 
-            writer.Write(19); // version
+            writer.Write(20); // version
 
             writer.Write((int)m_CurrentAI);
             writer.Write((int)m_DefaultAI);
@@ -1693,18 +1702,6 @@ namespace Server.Mobiles
 
             // Version 1
             writer.Write(RangeHome);
-
-            writer.Write(m_SpellAttack.Count);
-            for (var i = 0; i < m_SpellAttack.Count; i++)
-            {
-                writer.Write(m_SpellAttack[i].ToString());
-            }
-
-            writer.Write(m_SpellDefense.Count);
-            for (var i = 0; i < m_SpellDefense.Count; i++)
-            {
-                writer.Write(m_SpellDefense[i].ToString());
-            }
 
             // Version 2
             writer.Write((int)FightMode);
@@ -1838,27 +1835,20 @@ namespace Server.Mobiles
             {
                 RangeHome = reader.ReadInt();
 
-                var iCount = reader.ReadInt();
-                for (var i = 0; i < iCount; i++)
+                if (version < 20)
                 {
-                    var str = reader.ReadString();
-                    var type = Type.GetType(str);
-
-                    if (type != null)
+                    // Spell Attacks
+                    var iCount = reader.ReadInt(); // Count
+                    for (var i = 0; i < iCount; i++)
                     {
-                        m_SpellAttack.Add(type);
+                        reader.ReadString(); // Spell Type
                     }
-                }
 
-                iCount = reader.ReadInt();
-                for (var i = 0; i < iCount; i++)
-                {
-                    var str = reader.ReadString();
-                    var type = Type.GetType(str);
-
-                    if (type != null)
+                    // Spell Defenses
+                    iCount = reader.ReadInt(); // Count
+                    for (var i = 0; i < iCount; i++)
                     {
-                        m_SpellDefense.Add(type);
+                        reader.ReadString(); // Spell Type
                     }
                 }
             }
@@ -2573,7 +2563,6 @@ namespace Server.Mobiles
             if (m_IdleReleaseTime > DateTime.MinValue)
             {
                 // idling...
-
                 if (Core.Now >= m_IdleReleaseTime)
                 {
                     m_IdleReleaseTime = DateTime.MinValue;
@@ -2588,18 +2577,23 @@ namespace Server.Mobiles
                 return false; // not idling, but don't want to enter idle state
             }
 
-            m_IdleReleaseTime = Core.Now + TimeSpan.FromSeconds(Utility.RandomMinMax(15, 25));
+            var idleSeconds = Utility.RandomMinMax(NPCSpeeds.MinIdleSeconds, NPCSpeeds.MaxIdleSeconds);
+            m_IdleReleaseTime = Core.Now + TimeSpan.FromSeconds(idleSeconds);
 
             if (Body.IsHuman)
             {
                 switch (Utility.Random(2))
                 {
                     case 0:
-                        CheckedAnimate(5, 5, 1, true, true, 1);
-                        break;
+                        {
+                            CheckedAnimate(5, 5, 1, true, true, 1);
+                            break;
+                        }
                     case 1:
-                        CheckedAnimate(6, 5, 1, true, false, 1);
-                        break;
+                        {
+                            CheckedAnimate(6, 5, 1, true, false, 1);
+                            break;
+                        }
                 }
             }
             else if (Body.IsAnimal)
@@ -2607,14 +2601,20 @@ namespace Server.Mobiles
                 switch (Utility.Random(3))
                 {
                     case 0:
-                        CheckedAnimate(3, 3, 1, true, false, 1);
-                        break;
+                        {
+                            CheckedAnimate(3, 3, 1, true, false, 1);
+                            break;
+                        }
                     case 1:
-                        CheckedAnimate(9, 5, 1, true, false, 1);
-                        break;
+                        {
+                            CheckedAnimate(9, 5, 1, true, false, 1);
+                            break;
+                        }
                     case 2:
-                        CheckedAnimate(10, 5, 1, true, false, 1);
-                        break;
+                        {
+                            CheckedAnimate(10, 5, 1, true, false, 1);
+                            break;
+                        }
                 }
             }
             else if (Body.IsMonster)
@@ -2622,11 +2622,15 @@ namespace Server.Mobiles
                 switch (Utility.Random(2))
                 {
                     case 0:
-                        CheckedAnimate(17, 5, 1, true, false, 1);
-                        break;
+                        {
+                            CheckedAnimate(17, 5, 1, true, false, 1);
+                            break;
+                        }
                     case 1:
-                        CheckedAnimate(18, 5, 1, true, false, 1);
-                        break;
+                        {
+                            CheckedAnimate(18, 5, 1, true, false, 1);
+                            break;
+                        }
                 }
             }
 
@@ -2752,43 +2756,6 @@ namespace Server.Mobiles
                 m_NoDupeGuards = m;
                 Timer.StartTimer(ReleaseGuardDupeLock);
             }
-        }
-
-        public void AddSpellAttack(Type type)
-        {
-            m_SpellAttack.Add(type);
-        }
-
-        public void AddSpellDefense(Type type)
-        {
-            m_SpellDefense.Add(type);
-        }
-
-        public Spell GetAttackSpellRandom() => m_SpellAttack.RandomElement()?.CreateInstance<Spell>(this, null);
-
-        public Spell GetDefenseSpellRandom() => m_SpellDefense.RandomElement()?.CreateInstance<Spell>(this, null);
-
-        public Spell GetSpellSpecific(Type type)
-        {
-            int i;
-
-            for (i = 0; i < m_SpellAttack.Count; i++)
-            {
-                if (m_SpellAttack[i] == type)
-                {
-                    return type.CreateInstance<Spell>(this, null);
-                }
-            }
-
-            for (i = 0; i < m_SpellDefense.Count; i++)
-            {
-                if (m_SpellDefense[i] == type)
-                {
-                    return type.CreateInstance<Spell>(this, null);
-                }
-            }
-
-            return null;
         }
 
         public override void OnDoubleClick(Mobile from)
@@ -2920,17 +2887,25 @@ namespace Server.Mobiles
                     switch (Utility.Random(4))
                     {
                         case 0:
-                            PackItem(new CocoaButter());
-                            break;
+                            {
+                                PackItem(new CocoaButter());
+                                break;
+                            }
                         case 1:
-                            PackItem(new CocoaLiquor());
-                            break;
+                            {
+                                PackItem(new CocoaLiquor());
+                                break;
+                            }
                         case 2:
-                            PackItem(new SackOfSugar());
-                            break;
+                            {
+                                PackItem(new SackOfSugar());
+                                break;
+                            }
                         case 3:
-                            PackItem(new Vanilla());
-                            break;
+                            {
+                                PackItem(new Vanilla());
+                                break;
+                            }
                     }
                 }
             }
@@ -3000,11 +2975,12 @@ namespace Server.Mobiles
             return null;
         }
 
-        public virtual bool IsMonster =>
-            !Controlled || GetMaster() is not BaseCreature { Controlled: true };
+        public virtual bool IsMonster => !Controlled || (GetMaster() as BaseCreature)?.IsMonster == true;
 
         public bool InActivePVPCombat() =>
-            Combatant is PlayerMobile && ControlOrder != OrderType.Follow;
+            ControlOrder != OrderType.Follow &&
+            Combatant is PlayerMobile ||
+            Combatant is BaseCreature { Controlled: true } bc && bc.GetMaster() is PlayerMobile;
 
         public static List<DamageStore> GetLootingRights(List<DamageEntry> damageEntries, int hitsMax)
         {
@@ -3380,9 +3356,6 @@ namespace Server.Mobiles
                 Controlled = false;
                 ControlTarget = null;
                 ControlOrder = OrderType.None;
-                Guild = null;
-
-                Delta(MobileDelta.Noto);
             }
             else
             {
@@ -3406,16 +3379,19 @@ namespace Server.Mobiles
                 Controlled = true;
                 ControlTarget = null;
                 ControlOrder = OrderType.Come;
-                Guild = null;
+
 
                 if (m_DeleteTimer != null)
                 {
                     m_DeleteTimer.Stop();
                     m_DeleteTimer = null;
                 }
-
-                Delta(MobileDelta.Noto);
             }
+
+            Guild = null;
+            ResetSpeeds();
+
+            Delta(MobileDelta.Noto);
 
             InvalidateProperties();
 
@@ -4006,20 +3982,30 @@ namespace Server.Mobiles
                     switch (Utility.Random(5))
                     {
                         case 0:
-                            physDamage += BreathChaosDamage;
-                            break;
+                            {
+                                physDamage += BreathChaosDamage;
+                                break;
+                            }
                         case 1:
-                            fireDamage += BreathChaosDamage;
-                            break;
+                            {
+                                fireDamage += BreathChaosDamage;
+                                break;
+                            }
                         case 2:
-                            coldDamage += BreathChaosDamage;
-                            break;
+                            {
+                                coldDamage += BreathChaosDamage;
+                                break;
+                            }
                         case 3:
-                            poisDamage += BreathChaosDamage;
-                            break;
+                            {
+                                poisDamage += BreathChaosDamage;
+                                break;
+                            }
                         case 4:
-                            nrgyDamage += BreathChaosDamage;
-                            break;
+                            {
+                                nrgyDamage += BreathChaosDamage;
+                                break;
+                            }
                     }
                 }
 
@@ -4561,6 +4547,13 @@ namespace Server.Mobiles
             return false;
         }
 
+        public void SetSpeed(double active, double passive)
+        {
+            ActiveSpeed = active;
+            PassiveSpeed = passive;
+            CurrentSpeed = PassiveSpeed;
+        }
+
         public void SetDamage(int val)
         {
             m_DamageMin = val;
@@ -4666,20 +4659,30 @@ namespace Server.Mobiles
             switch (type)
             {
                 case ResistanceType.Physical:
-                    PhysicalDamage = val;
-                    break;
+                    {
+                        PhysicalDamage = val;
+                        break;
+                    }
                 case ResistanceType.Fire:
-                    FireDamage = val;
-                    break;
+                    {
+                        FireDamage = val;
+                        break;
+                    }
                 case ResistanceType.Cold:
-                    ColdDamage = val;
-                    break;
+                    {
+                        ColdDamage = val;
+                        break;
+                    }
                 case ResistanceType.Poison:
-                    PoisonDamage = val;
-                    break;
+                    {
+                        PoisonDamage = val;
+                        break;
+                    }
                 case ResistanceType.Energy:
-                    EnergyDamage = val;
-                    break;
+                    {
+                        EnergyDamage = val;
+                        break;
+                    }
             }
         }
 
@@ -4693,20 +4696,30 @@ namespace Server.Mobiles
             switch (type)
             {
                 case ResistanceType.Physical:
-                    m_PhysicalResistance = val;
-                    break;
+                    {
+                        m_PhysicalResistance = val;
+                        break;
+                    }
                 case ResistanceType.Fire:
-                    m_FireResistance = val;
-                    break;
+                    {
+                        m_FireResistance = val;
+                        break;
+                    }
                 case ResistanceType.Cold:
-                    m_ColdResistance = val;
-                    break;
+                    {
+                        m_ColdResistance = val;
+                        break;
+                    }
                 case ResistanceType.Poison:
-                    m_PoisonResistance = val;
-                    break;
+                    {
+                        m_PoisonResistance = val;
+                        break;
+                    }
                 case ResistanceType.Energy:
-                    m_EnergyResistance = val;
-                    break;
+                    {
+                        m_EnergyResistance = val;
+                        break;
+                    }
             }
 
             UpdateResistances();
@@ -4840,10 +4853,17 @@ namespace Server.Mobiles
             }
         }
 
-        // Reset speeds based on dex. Mainly used during construction and pet commands
+        // If this needs to be serialized, recommend creating a hash or registry id. Don't serialize strings.
+        public virtual string SpeedClass => null;
+
+        public virtual void GetSpeeds(out double activeSpeed, out double passiveSpeed)
+        {
+            NPCSpeeds.GetSpeeds(this, out activeSpeed, out passiveSpeed);
+        }
+
         public void ResetSpeeds(bool currentUseActive = false)
         {
-            SpeedInfo.GetSpeeds(this, out var activeSpeed, out var passiveSpeed);
+            GetSpeeds(out var activeSpeed, out var passiveSpeed);
 
             ActiveSpeed = activeSpeed;
             PassiveSpeed = passiveSpeed;

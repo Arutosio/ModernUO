@@ -10,8 +10,8 @@ namespace Server.Mobiles
             InitStats(1000, 1000, 1000);
             Title = "the guard";
 
+            SetSpeed(0.5, 2.0);
             SpeechHue = Utility.RandomDyedHue();
-
             Hue = Race.Human.RandomSkinHue();
 
             if (Female = Utility.RandomBool())
