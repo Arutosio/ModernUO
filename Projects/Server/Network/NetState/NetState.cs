@@ -220,6 +220,8 @@ public partial class NetState : IComparable<NetState>
 
     public IAccount Account { get; set; }
 
+    public string Assistant { get; set; }
+
     public int CompareTo(NetState other) => string.CompareOrdinal(_toString, other?._toString);
 
     private void SetPacketTime(int packetID)
@@ -343,13 +345,7 @@ public partial class NetState : IComparable<NetState>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void LogInfo(string text)
     {
-        logger.Information("Client: {0}: {1}", this, text);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void LogInfo(string format, params object[] args)
-    {
-        LogInfo(string.Format(format, args));
+        logger.Information("Client: {NetState}: {Message}", this, text);
     }
 
     public void AddMenu(IMenu menu)
@@ -730,7 +726,7 @@ public partial class NetState : IComparable<NetState>
         catch (Exception ex)
         {
 #if DEBUG
-                Console.WriteLine(ex);
+            Console.WriteLine(ex);
 #endif
             TraceException(ex);
             Disconnect("Exception during HandleReceive");
@@ -751,7 +747,7 @@ public partial class NetState : IComparable<NetState>
      * length is the total buffer length. We might be able to use packetReader.Capacity() instead.
      * packetLength is the length of the packet that this function actually found.
      */
-    private ParserState HandlePacket(CircularBufferReader packetReader, byte packetId, out int packetLength)
+    private unsafe ParserState HandlePacket(CircularBufferReader packetReader, byte packetId, out int packetLength)
     {
         PacketHandler handler = IncomingPackets.GetHandler(packetId);
         int length = packetReader.Length;
@@ -799,7 +795,7 @@ public partial class NetState : IComparable<NetState>
             }
         }
 
-        ThrottlePacketCallback throttler = handler.ThrottleCallback;
+        var throttler = handler.ThrottleCallback;
         if (throttler != null)
         {
             if (!throttler(packetId, this, out bool drop))
@@ -861,7 +857,7 @@ public partial class NetState : IComparable<NetState>
         {
             if (ex.SocketErrorCode != SocketError.WouldBlock)
             {
-                logger.Debug(ex, "Disconnected due to socket exception");
+                logger.Debug(ex, "Disconnected due to a socket exception");
                 Disconnect(string.Empty);
             }
         }
@@ -1127,13 +1123,6 @@ public partial class NetState : IComparable<NetState>
 
         var count = TcpServer.Instances.Count;
 
-        if (a != null)
-        {
-            LogInfo("Disconnected. [{0} Online] [{1}]", count, a);
-        }
-        else
-        {
-            LogInfo("Disconnected. [{0} Online]", count);
-        }
+        LogInfo(a != null ? $"Disconnected. [{count} Online] [{a}]" : $"Disconnected. [{count} Online]");
     }
 }

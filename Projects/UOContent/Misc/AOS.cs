@@ -164,23 +164,20 @@ namespace Server
                 }
             }
 
-            if (from?.Player != true && m.Player && m.Mount is SwampDragon pet)
+            if (from?.Player != true && m.Player && m.Mount is SwampDragon { HasBarding: true } pet)
             {
-                if (pet.HasBarding)
+                var percent = pet.BardingExceptional ? 20 : 10;
+                var absorbed = Scale(totalDamage, percent);
+
+                totalDamage -= absorbed;
+                pet.BardingHP -= absorbed;
+
+                if (pet.BardingHP < 0)
                 {
-                    var percent = pet.BardingExceptional ? 20 : 10;
-                    var absorbed = Scale(totalDamage, percent);
+                    pet.HasBarding = false;
+                    pet.BardingHP = 0;
 
-                    totalDamage -= absorbed;
-                    pet.BardingHP -= absorbed;
-
-                    if (pet.BardingHP < 0)
-                    {
-                        pet.HasBarding = false;
-                        pet.BardingHP = 0;
-
-                        m.SendLocalizedMessage(1053031); // Your dragon's barding has been destroyed!
-                    }
+                    m.SendLocalizedMessage(1053031); // Your dragon's barding has been destroyed!
                 }
             }
 
@@ -210,6 +207,11 @@ namespace Server
                         );
                     }
                 }
+            }
+
+            if (totalDamage <= 0)
+            {
+                return 0;
             }
 
             m.Damage(totalDamage, from);
@@ -566,21 +568,21 @@ namespace Server
 
             if (strBonus != 0 || dexBonus != 0 || intBonus != 0)
             {
-                var modName = Owner.Serial.ToString();
+                var serial = Owner.Serial;
 
                 if (strBonus != 0)
                 {
-                    to.AddStatMod(new StatMod(StatType.Str, $"{modName}Str", strBonus, TimeSpan.Zero));
+                    to.AddStatMod(new StatMod(StatType.Str, $"{serial}Str", strBonus, TimeSpan.Zero));
                 }
 
                 if (dexBonus != 0)
                 {
-                    to.AddStatMod(new StatMod(StatType.Dex, $"{modName}Dex", dexBonus, TimeSpan.Zero));
+                    to.AddStatMod(new StatMod(StatType.Dex, $"{serial}Dex", dexBonus, TimeSpan.Zero));
                 }
 
                 if (intBonus != 0)
                 {
-                    to.AddStatMod(new StatMod(StatType.Int, $"{modName}Int", intBonus, TimeSpan.Zero));
+                    to.AddStatMod(new StatMod(StatType.Int, $"{serial}Int", intBonus, TimeSpan.Zero));
                 }
             }
 
@@ -589,11 +591,11 @@ namespace Server
 
         public void RemoveStatBonuses(Mobile from)
         {
-            var modName = Owner.Serial.ToString();
+            var serial = Owner.Serial;
 
-            from.RemoveStatMod($"{modName}Str");
-            from.RemoveStatMod($"{modName}Dex");
-            from.RemoveStatMod($"{modName}Int");
+            from.RemoveStatMod($"{serial}Str");
+            from.RemoveStatMod($"{serial}Dex");
+            from.RemoveStatMod($"{serial}Int");
 
             from.CheckStatTimers();
         }
@@ -955,7 +957,7 @@ namespace Server
 
     public sealed class AosSkillBonuses : BaseAttributes
     {
-        private List<SkillMod> m_Mods;
+        private HashSet<SkillMod> m_Mods;
 
         public AosSkillBonuses(Item owner) : base(owner)
         {
@@ -1035,13 +1037,13 @@ namespace Server
             set => SetSkill(4, value);
         }
 
-        public void GetProperties(ObjectPropertyList list)
+        public void GetProperties(IPropertyList list)
         {
             for (var i = 0; i < 5; ++i)
             {
                 if (GetValues(i, out var skill, out var bonus))
                 {
-                    list.Add(1060451 + i, "#{0}\t{1}", GetLabel(skill), bonus);
+                    list.Add(1060451 + i, $"{GetLabel(skill):#}\t{bonus}");
                 }
             }
         }
@@ -1068,7 +1070,7 @@ namespace Server
                     continue;
                 }
 
-                m_Mods ??= new List<SkillMod>();
+                m_Mods ??= new HashSet<SkillMod>();
 
                 SkillMod sk = new DefaultSkillMod(skill, true, bonus);
                 sk.ObeyCap = true;
@@ -1084,10 +1086,10 @@ namespace Server
                 return;
             }
 
-            for (var i = 0; i < m_Mods.Count; ++i)
+            foreach (var mod in m_Mods)
             {
-                var m = m_Mods[i].Owner;
-                m_Mods[i].Remove();
+                var m = mod.Owner;
+                mod.Remove();
 
                 if (Core.ML)
                 {
@@ -1459,7 +1461,7 @@ namespace Server
                 }
             }
 
-            if (Owner.Parent is Mobile m)
+            if (Owner?.Parent is Mobile m)
             {
                 m.CheckStatTimers();
                 m.UpdateResistances();
@@ -1475,7 +1477,7 @@ namespace Server
                 }
             }
 
-            Owner.InvalidateProperties();
+            Owner?.InvalidateProperties();
         }
 
         private int GetIndex(uint mask)

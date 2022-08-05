@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Server.Collections;
 using Server.ContextMenus;
 using Server.Engines.ConPVP;
@@ -1324,7 +1325,7 @@ namespace Server.Mobiles
                 amount = (int)(amount * BonusPetDamageScalar);
             }
 
-            if (EvilOmenSpell.TryEndEffect(this))
+            if (EvilOmenSpell.EndEffect(this))
             {
                 amount = (int)(amount * 1.25);
             }
@@ -1384,7 +1385,7 @@ namespace Server.Mobiles
                 return ApplyPoisonResult.Immune;
             }
 
-            if (EvilOmenSpell.TryEndEffect(this))
+            if (EvilOmenSpell.EndEffect(this))
             {
                 poison = PoisonImpl.IncreaseLevel(poison);
             }
@@ -1880,7 +1881,7 @@ namespace Server.Mobiles
                 if (_summoned)
                 {
                     SummonEnd = reader.ReadDeltaTime();
-                    new UnsummonTimer(m_ControlMaster, this, SummonEnd - Core.Now).Start();
+                    new UnsummonTimer(this, SummonEnd - Core.Now).Start();
                 }
 
                 ControlSlots = reader.ReadInt();
@@ -2271,20 +2272,11 @@ namespace Server.Mobiles
             base.OnAfterDelete();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void DebugSay(string text)
         {
-            if (Debug)
-            {
-                PublicOverheadMessage(MessageType.Regular, 41, false, text);
-            }
-        }
-
-        public void DebugSay(string format, params object[] args)
-        {
-            if (Debug)
-            {
-                PublicOverheadMessage(MessageType.Regular, 41, false, string.Format(format, args));
-            }
+            // Moved the debug check to implementation layer so we can avoid string formatting when we do not need it
+            PublicOverheadMessage(MessageType.Regular, 41, false, text);
         }
 
         /*
@@ -2784,7 +2776,7 @@ namespace Server.Mobiles
             base.OnDoubleClick(from);
         }
 
-        public override void AddNameProperties(ObjectPropertyList list)
+        public override void AddNameProperties(IPropertyList list)
         {
             base.AddNameProperties(list);
 
@@ -2797,7 +2789,7 @@ namespace Server.Mobiles
             {
                 if (DisplayWeight)
                 {
-                    list.Add(TotalWeight == 1 ? 1072788 : 1072789, TotalWeight.ToString()); // Weight: ~1_WEIGHT~ stones
+                    list.Add(TotalWeight == 1 ? 1072788 : 1072789, TotalWeight); // Weight: ~1_WEIGHT~ stones
                 }
 
                 if (m_ControlOrder == OrderType.Guard)
@@ -3451,7 +3443,7 @@ namespace Server.Mobiles
                 }
             }
 
-            new UnsummonTimer(caster, creature, duration).Start();
+            new UnsummonTimer(creature, duration).Start();
             creature.SummonEnd = Core.Now + duration;
 
             creature.MoveToWorld(p, caster.Map);
