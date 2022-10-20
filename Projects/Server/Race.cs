@@ -1,14 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using System.Linq;
 
 namespace Server
 {
-    public enum EnumRaces { Human = 0, Elf = 1, Gargoyle = 2, DarkElf = 3, Orc = 4, Vampire = 5, Dwarf = 6, Demon =7 }
-
     [Parsable]
-    public abstract class Race //: ISerializable
+    public abstract class Race
     {
         private static string[] m_RaceNames;
         private static Race[] m_RaceValues;
@@ -35,16 +32,11 @@ namespace Server
 
         public static Race[] Races { get; } = new Race[0x100];
 
-        public static Race DefaultRace => Races[(int)EnumRaces.Human];
+        public static Race DefaultRace => Races[0];
 
-        public static Race Human => Races[(int)EnumRaces.Human];
-        public static Race Elf => Races[(int)EnumRaces.Elf];
-        public static Race Gargoyle => Races[(int)EnumRaces.Gargoyle];
-        public static Race DarkElf => Races[(int)EnumRaces.DarkElf];
-        public static Race Orc => Races[(int)EnumRaces.Orc];
-        public static Race Vampire => Races[(int)EnumRaces.Vampire];
-        public static Race Dwarf => Races[(int)EnumRaces.Dwarf];
-        public static Race Demon => Races[(int)EnumRaces.Demon];
+        public static Race Human => Races[0];
+        public static Race Elf => Races[1];
+        public static Race Gargoyle => Races[2];
 
         public static List<Race> AllRaces { get; } = new();
 
@@ -86,14 +78,6 @@ namespace Server
         {
             CheckNamesAndValues();
             return m_RaceValues;
-        }
-
-        public static Race GetRace(string value)
-        {
-            foreach (Race r in Races)
-                if (r.Name.ToLower().Equals(value.ToLower()))
-                    return r;
-            return null;
         }
 
         public static Race Parse(string value)
@@ -169,19 +153,5 @@ namespace Server
         public virtual int GhostBody(Mobile m) => GhostBody(m.Female);
 
         public virtual int GhostBody(bool female) => female ? FemaleGhostBody : MaleGhostBody;
-
-        //BufferWriter SaveBuffer { get; protected internal set; }
-        //int TypeRef { get; }
-        //Serial Serial { get; }
-        //void Deserialize(IGenericReader reader);
-        //void Serialize(IGenericWriter writer);
-        //void Delete();
-        //bool Deleted { get; }
-        //public static void Configure()
-        //{
-        //    EventSink.WorldLoad += Load;
-        //    EventSink.WorldSave += Save;
-        //}
-
     }
 }
