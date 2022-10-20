@@ -38,9 +38,9 @@ namespace Server.Spells.Necromancy
                 SpellHelper.Turn(Caster, m);
 
                 // SpellHelper.CheckReflect( (int)this.Circle, Caster, ref m );
-                // Irrelevent after AoS
+                // Irrelevant after AoS
 
-                /* Temporarily chokes off the air suply of the target with poisonous fumes.
+                /* Temporarily chokes off the air supply of the target with poisonous fumes.
                  * The target is inflicted with poison damage over time.
                  * The amount of damage dealt each "hit" is based off of the caster's Spirit Speak skill and the Target's current Stamina.
                  * The less Stamina the target has, the more damage is done by Strangle.
@@ -60,17 +60,21 @@ namespace Server.Spells.Necromancy
                 m.FixedParticles(0x36CB, 1, 9, 9911, 67, 5, EffectLayer.Head);
                 m.FixedParticles(0x374A, 1, 17, 9502, 1108, 4, (EffectLayer)255);
 
-                if (!_table.TryGetValue(m, out var timer))
+                // According to testing on OSI, it is refreshed.
+                if (_table.TryGetValue(m, out var timer))
                 {
-                    _table[m] = timer = new InternalTimer(m, Caster);
-                    timer.Start();
+                    timer.Stop();
                 }
+
+                timer = new InternalTimer(m, Caster);
+                _table[m] = timer;
+                timer.Start();
 
                 HarmfulSpell(m);
             }
 
             // Calculations for the buff bar
-            var spiritlevel = Math.Min(4, Caster.Skills.SpiritSpeak.Value / 10);
+            var spiritlevel = Math.Max(4, Caster.Skills.SpiritSpeak.Value / 10);
 
             const int minDamage = 4;
             var maxDamage = ((int)spiritlevel + 1) * 3;
@@ -81,7 +85,7 @@ namespace Server.Spells.Necromancy
             var hitDelay = 5;
             var length = hitDelay;
 
-            while (count > 1)
+            while (count >= 1)
             {
                 --count;
                 if (hitDelay > 1)
@@ -149,7 +153,7 @@ namespace Server.Spells.Necromancy
                 _hitDelay = 5;
                 _nextHit = Core.Now + TimeSpan.FromSeconds(_hitDelay);
 
-                _maxCount = _count = Math.Min(4, (int)spiritLevel);
+                _maxCount = _count = Math.Max(4, (int)spiritLevel);
             }
 
             protected override void OnTick()

@@ -56,12 +56,9 @@ namespace Server.Accounting
         [SerializableFieldAttr("[CommandProperty(AccessLevel.Administrator)]")]
         public int _totalPlat;
 
-        [SerializableField(8, "private", "private")]
-        private Mobile[] _rawMobiles;
+        private Mobile[] _mobiles;
 
-        private List<AccountComment> _comments;
-
-        [SerializableField(9)]
+        [SerializableProperty(9)]
         public List<AccountComment> Comments
         {
             get => _comments ??= new List<AccountComment>();
@@ -72,9 +69,7 @@ namespace Server.Accounting
             }
         }
 
-        private List<AccountTag> _tags;
-
-        [SerializableField(10)]
+        [SerializableProperty(10)]
         public List<AccountTag> Tags
         {
             get => _tags ??= new List<AccountTag>();
@@ -95,20 +90,18 @@ namespace Server.Accounting
         [SerializableField(12)]
         private string[] _ipRestrictions;
 
-        private TimeSpan _totalGameTime;
-
         /// <summary>
         ///     Gets the total game time of this account, also considering the game time of characters
         ///     that have been deleted.
         /// </summary>
-        [SerializableField(13)]
+        [SerializableProperty(13)]
         public TimeSpan TotalGameTime
         {
             get
             {
-                for (var i = 0; i < _rawMobiles.Length; i++)
+                for (var i = 0; i < _mobiles.Length; i++)
                 {
-                    if (_rawMobiles[i] is PlayerMobile m && m.NetState != null)
+                    if (_mobiles[i] is PlayerMobile m && m.NetState != null)
                     {
                         return _totalGameTime + (Core.Now - m.SessionStart);
                     }
@@ -140,7 +133,7 @@ namespace Server.Accounting
             _lastLogin = Core.Now;
             _totalGameTime = TimeSpan.Zero;
 
-            _rawMobiles = new Mobile[7];
+            _mobiles = new Mobile[7];
 
             _ipRestrictions = Array.Empty<string>();
             _loginIPs = Array.Empty<IPAddress>();
@@ -152,7 +145,6 @@ namespace Server.Accounting
         public Account(XmlElement node)
         {
             Serial = Accounts.NewAccount;
-            SetTypeRef(GetType());
 
             _username = Utility.GetText(node["username"], "empty");
 
@@ -188,26 +180,26 @@ namespace Server.Accounting
             _totalGold = Utility.GetXMLInt32(Utility.GetText(node["totalGold"], "0"), 0);
             _totalPlat = Utility.GetXMLInt32(Utility.GetText(node["totalPlat"], "0"), 0);
 
-            _rawMobiles = LoadMobiles(node);
+            _mobiles = LoadMobiles(node);
             _comments = LoadComments(node);
             _tags = LoadTags(node);
             _loginIPs = LoadAddressList(node);
             _ipRestrictions = LoadAccessCheck(node);
 
-            for (var i = 0; i < _rawMobiles.Length; ++i)
+            for (var i = 0; i < _mobiles.Length; ++i)
             {
-                if (_rawMobiles[i] != null)
+                if (_mobiles[i] != null)
                 {
-                    _rawMobiles[i].Account = this;
+                    _mobiles[i].Account = this;
                 }
             }
 
             var totalGameTime = Utility.GetXMLTimeSpan(Utility.GetText(node["totalGameTime"], null), TimeSpan.Zero);
             if (totalGameTime == TimeSpan.Zero)
             {
-                for (var i = 0; i < _rawMobiles.Length; i++)
+                for (var i = 0; i < _mobiles.Length; i++)
                 {
-                    if (_rawMobiles[i] is PlayerMobile m)
+                    if (_mobiles[i] is PlayerMobile m)
                     {
                         totalGameTime += m.GameTime;
                     }
@@ -223,17 +215,6 @@ namespace Server.Accounting
 
             Accounts.Add(this);
             this.MarkDirty();
-        }
-
-        public void SetTypeRef(Type type)
-        {
-            TypeRef = Accounts.Types.IndexOf(type);
-
-            if (TypeRef == -1)
-            {
-                Accounts.Types.Add(type);
-                TypeRef = Accounts.Types.Count - 1;
-            }
         }
 
         /// <summary>
@@ -312,8 +293,6 @@ namespace Server.Accounting
         [CommandProperty(AccessLevel.GameMaster)]
         DateTime ISerializable.LastSerialized { get; set; } = Core.Now;
 
-        public int TypeRef { get; private set; }
-
         public Serial Serial { get; set; }
 
         public void BeforeSerialize()
@@ -333,19 +312,19 @@ namespace Server.Accounting
                 _tags = null;
             }
 
-            for (var i = 0; i < _rawMobiles.Length; ++i)
+            for (var i = 0; i < _mobiles.Length; ++i)
             {
-                if (_rawMobiles[i] != null)
+                if (_mobiles[i] != null)
                 {
-                    _rawMobiles[i].Account = this;
+                    _mobiles[i].Account = this;
                 }
             }
 
             if (_totalGameTime == TimeSpan.Zero)
             {
-                for (var i = 0; i < _rawMobiles.Length; i++)
+                for (var i = 0; i < _mobiles.Length; i++)
                 {
-                    if (_rawMobiles[i] is PlayerMobile m)
+                    if (_mobiles[i] is PlayerMobile m)
                     {
                         _totalGameTime += m.GameTime;
                     }
@@ -382,7 +361,7 @@ namespace Server.Accounting
                 m.Delete();
 
                 m.Account = null;
-                _rawMobiles[i] = null;
+                _mobiles[i] = null;
             }
 
             if (_loginIPs.Length != 0 && AccountHandler.IPTable.ContainsKey(_loginIPs[0]))
@@ -453,7 +432,7 @@ namespace Server.Accounting
         /// <summary>
         ///     Gets the maximum amount of characters that this account can hold.
         /// </summary>
-        public int Length => _rawMobiles.Length;
+        public int Length => _mobiles.Length;
 
         /// <summary>
         ///     Gets or sets the character at a specified index for this account. Out of bound index values are handled; null returned
@@ -463,9 +442,9 @@ namespace Server.Accounting
         {
             get
             {
-                if (index >= 0 && index < _rawMobiles.Length)
+                if (index >= 0 && index < _mobiles.Length)
                 {
-                    var m = _rawMobiles[index];
+                    var m = _mobiles[index];
 
                     if (m?.Deleted != true)
                     {
@@ -475,7 +454,7 @@ namespace Server.Accounting
                     // This is the only place that clears a mobile for garbage collection
                     // outside of an entire account deletion.
                     m.Account = null;
-                    _rawMobiles[index] = null;
+                    _mobiles[index] = null;
                     this.MarkDirty();
                 }
 
@@ -483,19 +462,19 @@ namespace Server.Accounting
             }
             set
             {
-                if (index >= 0 && index < _rawMobiles.Length)
+                if (index >= 0 && index < _mobiles.Length)
                 {
-                    if (_rawMobiles[index] != null)
+                    if (_mobiles[index] != null)
                     {
-                        _rawMobiles[index].Account = null;
+                        _mobiles[index].Account = null;
                     }
 
-                    _rawMobiles[index] = value;
+                    _mobiles[index] = value;
                     this.MarkDirty();
 
-                    if (_rawMobiles[index] != null)
+                    if (_mobiles[index] != null)
                     {
-                        _rawMobiles[index].Account = this;
+                        _mobiles[index].Account = this;
                     }
                 }
             }
@@ -826,9 +805,9 @@ namespace Server.Accounting
         {
             Young = false;
 
-            for (var i = 0; i < _rawMobiles.Length; i++)
+            for (var i = 0; i < _mobiles.Length; i++)
             {
-                if (_rawMobiles[i] is PlayerMobile { Young: true } m)
+                if (_mobiles[i] is PlayerMobile { Young: true } m)
                 {
                     m.Young = false;
 
@@ -1081,8 +1060,6 @@ namespace Server.Accounting
                     }
                 }
 
-                Console.WriteLine("{0} {1}", hasAccess ? "yes" : "no", _accessLevel);
-
                 if (!hasAccess)
                 {
                     return false;
@@ -1186,8 +1163,9 @@ namespace Server.Accounting
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Enumerator GetEnumerator() => new(_rawMobiles);
+        public Enumerator GetEnumerator() => new(_mobiles);
 
+        [SerializableProperty(8, useField: nameof(_mobiles))]
         public Enumerator Mobiles
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

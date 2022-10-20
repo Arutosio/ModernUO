@@ -439,7 +439,7 @@ namespace Server.Items
                         }
                         else if (m_SkillMod == null && Parent is Mobile mobile)
                         {
-                            m_SkillMod = new DefaultSkillMod(AccuracySkill, true, (int)m_AccuracyLevel * 5);
+                            m_SkillMod = new DefaultSkillMod(AccuracySkill, "WeaponAccuracy", true, (int)m_AccuracyLevel * 5);
                             mobile.AddSkillMod(m_SkillMod);
                         }
                         else if (m_SkillMod != null)
@@ -966,7 +966,7 @@ namespace Server.Items
             {
                 m_SkillMod?.Remove();
 
-                m_SkillMod = new DefaultSkillMod(AccuracySkill, true, (int)m_AccuracyLevel * 5);
+                m_SkillMod = new DefaultSkillMod(AccuracySkill, "WeaponAccuracy", true, (int)m_AccuracyLevel * 5);
                 from.AddSkillMod(m_SkillMod);
             }
 
@@ -974,7 +974,7 @@ namespace Server.Items
             {
                 m_MageMod?.Remove();
 
-                m_MageMod = new DefaultSkillMod(SkillName.Magery, true, -30 + WeaponAttributes.MageWeapon);
+                m_MageMod = new DefaultSkillMod(SkillName.Magery, "MageWeapon", true, -30 + WeaponAttributes.MageWeapon);
                 from.AddSkillMod(m_MageMod);
             }
 
@@ -1924,24 +1924,6 @@ namespace Server.Items
                     lifeLeech += 50; // Additional 50% life leech for cursed weapons (necro spell)
                 }
 
-                context = TransformationSpellHelper.GetContext(attacker);
-
-                if (context?.Type == typeof(VampiricEmbraceSpell))
-                {
-                    lifeLeech += 20; // Vampiric embrace gives an additional 20% life leech
-                }
-
-                if (context?.Type == typeof(WraithFormSpell))
-                {
-                    // Wraith form gives an additional 5-20% mana leech
-                    var wraithLeech = 5 + (int)(15 * attacker.Skills.SpiritSpeak.Value / 100);
-
-                    // Mana leeched by the Wraith Form spell is actually stolen, not just leeched.
-                    defender.Mana -= AOS.Scale(damageGiven, wraithLeech);
-
-                    manaLeech += wraithLeech;
-                }
-
                 if (lifeLeech != 0)
                 {
                     attacker.Hits += AOS.Scale(damageGiven, lifeLeech);
@@ -2103,8 +2085,8 @@ namespace Server.Items
                 }
             }
 
-            bcAtt?.OnGaveMeleeAttack(defender);
-            bcDef?.OnGotMeleeAttack(attacker);
+            bcAtt?.OnGaveMeleeAttack(defender, damage);
+            bcDef?.OnGotMeleeAttack(attacker, damage);
 
             a?.OnHit(attacker, defender, damage);
             move?.OnHit(attacker, defender, damage);
@@ -3962,7 +3944,7 @@ namespace Server.Items
 
                         if (UseSkillMod && m_AccuracyLevel != WeaponAccuracyLevel.Regular && parentMobile != null)
                         {
-                            m_SkillMod = new DefaultSkillMod(AccuracySkill, true, (int)m_AccuracyLevel * 5);
+                            m_SkillMod = new DefaultSkillMod(AccuracySkill, "WeaponAccuracy", true, (int)m_AccuracyLevel * 5);
                             parentMobile.AddSkillMod(m_SkillMod);
                         }
 
@@ -3974,7 +3956,7 @@ namespace Server.Items
                         if (Core.AOS && WeaponAttributes.MageWeapon != 0 && WeaponAttributes.MageWeapon != 30 &&
                             parentMobile != null)
                         {
-                            m_MageMod = new DefaultSkillMod(SkillName.Magery, true, -30 + WeaponAttributes.MageWeapon);
+                            m_MageMod = new DefaultSkillMod(SkillName.Magery, "MageWeapon", true, -30 + WeaponAttributes.MageWeapon);
                             parentMobile.AddSkillMod(m_MageMod);
                         }
 
@@ -4129,7 +4111,7 @@ namespace Server.Items
 
                         if (UseSkillMod && m_AccuracyLevel != WeaponAccuracyLevel.Regular && parentMobile != null)
                         {
-                            m_SkillMod = new DefaultSkillMod(AccuracySkill, true, (int)m_AccuracyLevel * 5);
+                            m_SkillMod = new DefaultSkillMod(AccuracySkill, "WeaponAccuracy", true, (int)m_AccuracyLevel * 5);
                             parentMobile.AddSkillMod(m_SkillMod);
                         }
 

@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright (C) 2019-2021 - ModernUO Development Team                   *
+ * Copyright 2019-2022 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: Timer.cs                                                        *
  *                                                                       *
@@ -14,6 +14,7 @@
  *************************************************************************/
 
 using System;
+using System.Diagnostics;
 using Server.Diagnostics;
 using Server.Logging;
 
@@ -51,6 +52,8 @@ public partial class Timer
         _nextTimer = null;
         _prevTimer = null;
         Next = Core.Now + Delay;
+        _ring = -1;
+        _slot = -1;
 
         var prof = GetProfile();
 
@@ -76,6 +79,29 @@ public partial class Timer
 
     public Timer Start()
     {
+        if (World.WorldState is WorldState.Saving)
+        {
+            logger.Error(
+                "Attempted to start timer {Timer} ({HashCode}) while world is {State}\n{StackTrace}",
+                GetType(),
+                GetHashCode(),
+                World.WorldState,
+                new StackTrace()
+            );
+        }
+
+#if THREADGUARD
+        if (Thread.CurrentThread != Core.Thread)
+        {
+            logger.Error(
+                "Attempted to start timer {Timer} ({HashCode}) from an invalid thread!\n{StackTrace}",
+                GetType(),
+                GetHashCode(),
+                new StackTrace()
+            );
+        }
+#endif
+
         if (Running)
         {
             return this;
@@ -97,6 +123,29 @@ public partial class Timer
 
     public void Stop()
     {
+        if (World.WorldState is WorldState.Saving)
+        {
+            logger.Error(
+                "Attempted to stop timer {Timer} ({HashCode}) while world is {State}\n{StackTrace}",
+                GetType(),
+                GetHashCode(),
+                World.WorldState,
+                new StackTrace()
+            );
+        }
+
+#if THREADGUARD
+        if (Thread.CurrentThread != Core.Thread)
+        {
+            logger.Error(
+                "Attempted to stop timer {Timer} ({HashCode}) from an invalid thread!\n{StackTrace}",
+                GetType(),
+                GetHashCode(),
+                new StackTrace()
+            );
+        }
+#endif
+
         if (!Running)
         {
             return;
@@ -104,20 +153,22 @@ public partial class Timer
 
         Running = false;
 
-        // Do not detach if we are in the middle of executing the timer wheel for this ring/slot
-        if (!_timerWheelExecuting || _ringIndexes[_ring] != _slot)
+        // We are the head on the timer ring
+        if (_rings[_ring][_slot] == this)
         {
-            // We are at the head
-            if (_rings[_ring][_slot] == this)
-            {
-                _rings[_ring][_slot] = _nextTimer;
-            }
-
-            Detach();
-            OnDetach();
+            _rings[_ring][_slot] = _nextTimer;
         }
 
+        // We are the head on the executing ring
+        if (_executingRings[_ring] == this)
+        {
+            _executingRings[_ring] = _nextTimer;
+        }
+
+        Detach();
+
         Version++;
+        OnDetach();
 
         var prof = GetProfile();
         if (prof != null)
@@ -132,9 +183,30 @@ public partial class Timer
 
     private void Attach(Timer timer)
     {
+#if DEBUG_TIMERS
+        if (_nextTimer != null)
+        {
+            logger.Error(
+                "{Timer} ({HashCode}) attached with a next timer already set!",
+                this,
+                GetHashCode()
+            );
+        }
+#endif
         _nextTimer = timer;
+
         if (timer != null)
         {
+#if DEBUG_TIMERS
+            if (timer._prevTimer != null)
+            {
+                logger.Error(
+                    "{Timer} ({HashCode}) attached from with a previous timer already set!",
+                    timer,
+                    timer.GetHashCode()
+                );
+            }
+#endif
             timer._prevTimer = this;
         }
     }
@@ -157,5 +229,13 @@ public partial class Timer
 
     internal virtual void OnDetach()
     {
+        if (Running)
+        {
+            logger.Error("{Timer} detached while still running!\n{StackTrace}", this, new StackTrace());
+            return;
+        }
+
+        _ring = -1;
+        _slot = -1;
     }
 }

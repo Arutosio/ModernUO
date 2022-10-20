@@ -116,8 +116,13 @@ namespace Server.Engines.Craft
 
         private int m_ResHue;
         private CraftSystem m_System;
+        private int _itemId;
 
-        public CraftItem(Type type, TextDefinition groupName, TextDefinition name)
+        public CraftItem(Type type, TextDefinition groupName, TextDefinition name) : this(type, groupName, name, -1)
+        {
+        }
+
+        public CraftItem(Type type, TextDefinition groupName, TextDefinition name, int itemId)
         {
             Resources = new List<CraftRes>();
             Skills = new List<CraftSkill>();
@@ -131,6 +136,7 @@ namespace Server.Engines.Craft
             NameNumber = name;
 
             RequiredBeverage = BeverageType.Water;
+            _itemId = itemId;
         }
 
         public bool ForceNonExceptional { get; set; }
@@ -168,6 +174,8 @@ namespace Server.Engines.Craft
         public string NameString { get; }
 
         public int NameNumber { get; }
+
+        public int ItemId => _itemId == -1 ? _itemId = ItemIDOf(ItemType) : _itemId;
 
         public List<CraftRes> Resources { get; }
 
@@ -813,8 +821,7 @@ namespace Server.Engines.Craft
 
         public bool CheckSkills(
             Mobile from, Type typeRes, CraftSystem craftSystem, ref int quality, out bool allRequiredSkills
-        ) =>
-            CheckSkills(from, typeRes, craftSystem, ref quality, out allRequiredSkills, true);
+        ) => CheckSkills(from, typeRes, craftSystem, ref quality, out allRequiredSkills, true);
 
         public bool CheckSkills(
             Mobile from, Type typeRes, CraftSystem craftSystem, ref int quality,
@@ -873,17 +880,13 @@ namespace Server.Engines.Craft
                 return 0;
             }
 
-            double chance = craftSystem.GetChanceAtMin(this) + (valMainSkill - minMainSkill) / (maxMainSkill - minMainSkill) *
-                (1.0 - craftSystem.GetChanceAtMin(this));
+            var minChance = craftSystem.GetChanceAtMin(this);
 
-            if (allRequiredSkills && from.Talisman is BaseTalisman talisman && talisman.Skill == craftSystem.MainSkill)
+            double chance = minChance + (valMainSkill - minMainSkill) / (maxMainSkill - minMainSkill) * (1.0 - minChance);
+
+            if (from.Talisman is BaseTalisman talisman && talisman.Skill == craftSystem.MainSkill)
             {
                 chance += talisman.SuccessBonus / 100.0;
-            }
-
-            if (allRequiredSkills && valMainSkill >= maxMainSkill)
-            {
-                chance = 1.0;
             }
 
             return chance;
@@ -914,7 +917,7 @@ namespace Server.Engines.Craft
 
             var chance = GetSuccessChance(from, typeRes, craftSystem, false, out var allRequiredSkills);
 
-            if (!allRequiredSkills || !(chance >= 0.0))
+            if (!allRequiredSkills || chance <= 0.0)
             {
                 from.EndAction<CraftSystem>();
                 from.SendGump(

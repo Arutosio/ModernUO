@@ -96,30 +96,29 @@ namespace Server.Mobiles
         }
 
         // TODO: Put this attack shared with Hiryu and Lesser Hiryu in one place
-        public override void OnGaveMeleeAttack(Mobile defender)
+        public override void OnGaveMeleeAttack(Mobile defender, int damage)
         {
-            base.OnGaveMeleeAttack(defender);
+            base.OnGaveMeleeAttack(defender, damage);
 
             if (Utility.RandomDouble() >= 0.1)
             {
                 return;
             }
 
-            if (m_Table.TryGetValue(defender, out var timer))
+            if (m_Table.Remove(defender, out var timer))
             {
                 timer.DoExpire();
                 defender.SendLocalizedMessage(1070837); // The creature lands another blow in your weakened state.
             }
             else
             {
-                defender.SendLocalizedMessage(
-                    1070836
-                ); // The blow from the creature's claws has made you more susceptible to physical attacks.
+                // The blow from the creature's claws has made you more susceptible to physical attacks.
+                defender.SendLocalizedMessage(1070836);
             }
 
             var effect = -(defender.PhysicalResistance * 15 / 100);
 
-            var mod = new ResistanceMod(ResistanceType.Physical, effect);
+            var mod = new ResistanceMod(ResistanceType.Physical, "PhysicalResistGraspingClaw", effect);
 
             defender.FixedEffect(0x37B9, 10, 5);
             defender.AddResistanceMod(mod);
@@ -159,13 +158,13 @@ namespace Server.Mobiles
             {
                 m_Mobile.RemoveResistanceMod(m_Mod);
                 Stop();
-                m_Table.Remove(m_Mobile);
             }
 
             protected override void OnTick()
             {
                 m_Mobile.SendLocalizedMessage(1070838); // Your resistance to physical attacks has returned.
                 DoExpire();
+                m_Table.Remove(m_Mobile);
             }
         }
     }

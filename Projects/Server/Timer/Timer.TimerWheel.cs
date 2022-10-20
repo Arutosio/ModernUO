@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright 2019-2021 - ModernUO Development Team                       *
+ * Copyright 2019-2022 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: Timer.TimerWheel.cs                                             *
  *                                                                       *
@@ -22,17 +22,20 @@ namespace Server;
 
 public partial class Timer
 {
+#if DEBUG_TIMERS
+    private const int _chainExecutionThreshold = 512;
+#endif
     private const int _ringSizePowerOf2 = 12;
     private const int _ringSize = 1 << _ringSizePowerOf2; // 4096
     private const int _ringLayers = 3;
     private const int _tickRatePowerOf2 = 3;
     private const int _tickRate = 1 << _tickRatePowerOf2; // 8ms
 
-    private static readonly Timer[][] _rings = new Timer[_ringLayers][];
-    private static readonly int[] _ringIndexes = new int[_ringLayers];
+    private static Timer[][] _rings = new Timer[_ringLayers][];
+    private static int[] _ringIndexes = new int[_ringLayers];
+    private static Timer[] _executingRings = new Timer[_ringLayers];
 
     private static long _lastTickTurned = -1;
-    private static bool _timerWheelExecuting;
 
     public static void Init(long tickCount)
     {
@@ -58,10 +61,7 @@ public partial class Timer
 
     private static void Turn()
     {
-        _timerWheelExecuting = true;
         var turnNextWheel = false;
-
-        var _executingRings = new Timer[_ringLayers];
 
         // Detach the chain from the timer wheel. This allows adding timers to the same slot during execution.
         for (var i = 0; i < _ringLayers; i++)
@@ -87,15 +87,19 @@ public partial class Timer
 
         for (var i = 0; i < _ringLayers; i++)
         {
-            var timer = _executingRings[i];
-            if (timer == null)
+#if DEBUG_TIMERS
+            var executionCount = 0;
+#endif
+            while (_executingRings[i] != null)
             {
-                continue;
-            }
+#if DEBUG_TIMERS
+                executionCount++;
+#endif
 
-            do
-            {
-                var next = timer._nextTimer;
+                var timer = _executingRings[i];
+
+                // Set the executing timer to the next in the link list because we will be detaching.
+                _executingRings[i] = timer._nextTimer;
 
                 timer.Detach();
 
@@ -117,12 +121,18 @@ public partial class Timer
                 {
                     timer.OnDetach();
                 }
-
-                timer = next;
-            } while (timer != null);
+            }
+#if DEBUG_TIMERS
+            if (executionCount > _chainExecutionThreshold)
+            {
+                logger.Warning(
+                    "Timer threshold of {Threshold} met. Executed {Count} timers sequentially.",
+                    _chainExecutionThreshold,
+                    executionCount
+                );
+            }
+#endif
         }
-
-        _timerWheelExecuting = false;
     }
 
     private static void Execute(Timer timer)
@@ -206,7 +216,7 @@ public partial class Timer
     public static void DumpInfo(TextWriter tw)
     {
         tw.WriteLine($"Date: {Core.Now.ToLocalTime()}\n");
-        tw.WriteLine($"Pool - Count: {_poolCount - _timerPoolDepletionAmount}; Size {_poolCapacity}\n");
+        tw.WriteLine($"Pool - Count: {_poolCount}; Capacity {_poolCapacity}\n");
 
         var total = 0.0;
         var hash = new Dictionary<string, int>();
@@ -230,7 +240,7 @@ public partial class Timer
 
                     total++;
 
-                    t = t?._nextTimer;
+                    t = t._nextTimer;
                 }
             }
         }
