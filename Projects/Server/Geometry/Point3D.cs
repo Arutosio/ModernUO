@@ -18,10 +18,9 @@ using System.Runtime.CompilerServices;
 
 namespace Server;
 
-[Parsable]
 public struct Point3D
     : IPoint3D, IComparable<Point3D>, IComparable<IPoint3D>, IEquatable<object>, IEquatable<Point3D>,
-        IEquatable<IPoint3D>
+        IEquatable<IPoint3D>, ISpanFormattable, ISpanParsable<Point3D>
 {
     internal int m_X;
     internal int m_Y;
@@ -70,8 +69,6 @@ public struct Point3D
         m_Z = z;
     }
 
-    public override string ToString() => $"({m_X}, {m_Y}, {m_Z})";
-
     public bool Equals(Point3D other) => m_X == other.m_X && m_Y == other.m_Y && m_Z == other.m_Z;
 
     public bool Equals(IPoint3D other) =>
@@ -80,26 +77,6 @@ public struct Point3D
     public override bool Equals(object obj) => obj is Point3D other && Equals(other);
 
     public override int GetHashCode() => HashCode.Combine(m_X, m_Y, m_Z);
-
-    public static Point3D Parse(string value)
-    {
-        var start = value.IndexOfOrdinal('(');
-        var end = value.IndexOf(',', start + 1);
-
-        Utility.ToInt32(value.AsSpan(start + 1, end - (start + 1)).Trim(), out var x);
-
-        start = end;
-        end = value.IndexOf(',', start + 1);
-
-        Utility.ToInt32(value.AsSpan(start + 1, end - (start + 1)).Trim(), out var y);
-
-        start = end;
-        end = value.IndexOf(')', start + 1);
-
-        Utility.ToInt32(value.AsSpan(start + 1, end - (start + 1)).Trim(), out var z);
-
-        return new Point3D(x, y, z);
-    }
 
     public static bool operator ==(Point3D l, Point3D r) => l.m_X == r.m_X && l.m_Y == r.m_Y && l.m_Z == r.m_Z;
 
@@ -163,5 +140,137 @@ public struct Point3D
         }
 
         return m_Z.CompareTo(other.Z);
+    }
+
+    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider provider)
+        => destination.TryWrite(provider, $"({m_X}, {m_Y}, {m_Z})", out charsWritten);
+
+    public override string ToString()
+    {
+        // Maximum number of characters that are needed to represent this:
+        // 6 characters for (, , )
+        // Up to 11 characters to represent each integer
+        const int maxLength = 6 + 11 * 3;
+        Span<char> span = stackalloc char[maxLength];
+        TryFormat(span, out var charsWritten, null, null);
+        return span[..charsWritten].ToString();
+    }
+
+    public string ToString(string format, IFormatProvider formatProvider)
+    {
+        // format and formatProvider are not doing anything right now, so use the
+        // default ToString implementation.
+        return ToString();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Point3D Parse(string s) => Parse(s, null);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Point3D Parse(string s, IFormatProvider provider) => Parse(s.AsSpan(), provider);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool TryParse(string s, IFormatProvider provider, out Point3D result) =>
+        TryParse(s.AsSpan(), provider, out result);
+
+    public static Point3D Parse(ReadOnlySpan<char> s, IFormatProvider provider)
+    {
+        s = s.Trim();
+
+        if (!s.StartsWithOrdinal('(') || !s.EndsWithOrdinal(')'))
+        {
+            throw new FormatException($"The input string '{s}' was not in a correct format.");
+        }
+
+        var firstComma = s.IndexOfOrdinal(',');
+        if (firstComma == -1)
+        {
+            throw new FormatException($"The input string '{s}' was not in a correct format.");
+        }
+
+        var first = s.Slice(1, firstComma - 1).Trim();
+
+        if (!Utility.ToInt32(first, out var x))
+        {
+            throw new FormatException($"The input string '{s}' was not in a correct format.");
+        }
+
+        var offset = firstComma + 1;
+
+        var secondComma = s[offset..].IndexOfOrdinal(',');
+        if (secondComma == -1 || offset == secondComma)
+        {
+            throw new FormatException($"The input string '{s}' was not in a correct format.");
+        }
+
+        var second = s.Slice(firstComma + 1, secondComma).Trim();
+
+        if (!Utility.ToInt32(second, out var y))
+        {
+            throw new FormatException($"The input string '{s}' was not in a correct format.");
+        }
+
+        offset += secondComma + 1;
+
+        var third = s.Slice(offset, s.Length - offset - 1).Trim();
+        if (!Utility.ToInt32(third, out var z))
+        {
+            throw new FormatException($"The input string '{s}' was not in a correct format.");
+        }
+
+        return new Point3D(x, y, z);
+    }
+
+    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider provider, out Point3D result)
+    {
+        s = s.Trim();
+
+        if (!s.StartsWithOrdinal('(') || !s.EndsWithOrdinal(')'))
+        {
+            result = default;
+            return false;
+        }
+
+        var firstComma = s.IndexOfOrdinal(',');
+        if (firstComma == -1)
+        {
+            result = default;
+            return false;
+        }
+
+        var first = s.Slice(1, firstComma - 1).Trim();
+        if (!Utility.ToInt32(first, out var x))
+        {
+            result = default;
+            return false;
+        }
+
+        var offset = firstComma + 1;
+
+        var secondComma = s[offset..].IndexOfOrdinal(',');
+        if (secondComma == -1 || offset == secondComma)
+        {
+            result = default;
+            return false;
+        }
+
+        var second = s.Slice(firstComma + 1, secondComma).Trim();
+        if (!Utility.ToInt32(second, out var y))
+        {
+            result = default;
+            return false;
+        }
+
+        offset += secondComma + 1;
+
+        var third = s.Slice(offset, s.Length - offset - 1).Trim();
+        if (!Utility.ToInt32(third, out var z))
+        {
+            result = default;
+            return false;
+        }
+
+        result = new Point3D(x, y, z);
+        return true;
     }
 }

@@ -487,14 +487,7 @@ namespace Server.Items
 
                 if (Quality == WeaponQuality.Exceptional)
                 {
-                    if (Attributes.WeaponDamage > 35)
-                    {
-                        Attributes.WeaponDamage -= 20;
-                    }
-                    else
-                    {
-                        Attributes.WeaponDamage = 15;
-                    }
+                    Attributes.WeaponDamage = 35;
 
                     if (Core.ML)
                     {
@@ -1380,7 +1373,7 @@ namespace Server.Items
                 return false;
             }
 
-            var shield = defender.FindItemOnLayer(Layer.TwoHanded) as BaseShield;
+            var shield = defender.FindItemOnLayer<BaseShield>(Layer.TwoHanded);
 
             var parry = defender.Skills.Parry.Value;
             var bushidoNonRacial = defender.Skills.Bushido.NonRacialValue;
@@ -1496,7 +1489,7 @@ namespace Server.Items
                         defender.Stam += Utility.RandomMinMax(1, (int)(bushido / 5));
                     }
 
-                    var shield = defender.FindItemOnLayer(Layer.TwoHanded) as BaseShield;
+                    var shield = defender.FindItemOnLayer<BaseShield>(Layer.TwoHanded);
 
                     shield?.OnHit(this, damage);
                 }
@@ -1792,9 +1785,11 @@ namespace Server.Items
                 out var direct
             );
 
-            if (Core.ML && this is BaseRanged && attacker.FindItemOnLayer(Layer.Cloak) is BaseQuiver quiver)
+            if (Core.ML && this is BaseRanged)
             {
-                quiver.AlterBowDamage(ref phys, ref fire, ref cold, ref pois, ref nrgy, ref chaos, ref direct);
+                attacker
+                    .FindItemOnLayer<BaseQuiver>(Layer.Cloak)
+                    ?.AlterBowDamage(ref phys, ref fire, ref cold, ref pois, ref nrgy, ref chaos, ref direct);
             }
 
             if (Consecrated)
@@ -1945,9 +1940,12 @@ namespace Server.Items
                 }
             }
 
-            var isAcidMonster = m_MaxHits > 0 && MaxRange <= 1 && defender is Slime or AcidElemental;
+            var isAcidMonster =
+                m_MaxHits > 0 && MaxRange <= 1 && Attributes.SpellChanneling == 0 &&
+                defender is Slime or AcidElemental;
+
             // Stratics says 50% chance, seems more like 4%..
-            if (isAcidMonster || Utility.RandomDouble() < 0.04)
+            if (isAcidMonster || Utility.Random(25) == 0)
             {
                 if (isAcidMonster)
                 {
@@ -2385,27 +2383,8 @@ namespace Server.Items
             };
         }
 
-        public virtual int GetDamageBonus()
-        {
-            var quality = m_Quality switch
-            {
-                WeaponQuality.Low         => -20,
-                WeaponQuality.Exceptional => 20,
-                _                         => 0
-            };
-
-            var damageLevel = m_DamageLevel switch
-            {
-                WeaponDamageLevel.Ruin  => 15,
-                WeaponDamageLevel.Might => 20,
-                WeaponDamageLevel.Force => 25,
-                WeaponDamageLevel.Power => 30,
-                WeaponDamageLevel.Vanq  => 35,
-                _                       => 0
-            };
-
-            return VirtualDamageBonus + quality + damageLevel;
-        }
+        // Note: AOS quality/damage bonuses removed since they are incorporated into the crafting already
+        public virtual int GetDamageBonus() => VirtualDamageBonus;
 
         public virtual double ScaleDamageAOS(Mobile attacker, double damage, bool checkSkills)
         {
@@ -2477,10 +2456,9 @@ namespace Server.Items
                 damageBonus = 100;
             }
 
-            var totalBonus = strengthBonus + anatomyBonus + tacticsBonus + lumberBonus +
-                             (GetDamageBonus() + damageBonus) / 100.0;
+            var totalBonus = strengthBonus + anatomyBonus + tacticsBonus + lumberBonus + damageBonus + GetDamageBonus();
 
-            return damage + (int)(damage * totalBonus);
+            return damage + damage * totalBonus / 100.0;
         }
 
         public virtual int ComputeDamageAOS(Mobile attacker, Mobile defender) =>

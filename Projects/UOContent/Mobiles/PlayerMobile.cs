@@ -165,9 +165,7 @@ namespace Server.Mobiles
 
         private int m_HairModID = -1, m_HairModHue;
 
-        public DateTime m_hontime;
-
-        private bool m_IgnoreMobiles; // IgnoreMobiles should be moved to Server.Mobiles
+        public DateTime _honorTime;
 
         private Mobile m_InsuranceAward;
         private int m_InsuranceBonus;
@@ -418,20 +416,6 @@ namespace Server.Mobiles
         {
             get;
             set;
-        }
-
-        [CommandProperty(AccessLevel.GameMaster)]
-        public bool IgnoreMobiles // IgnoreMobiles should be moved to Server.Mobiles
-        {
-            get => m_IgnoreMobiles;
-            set
-            {
-                if (m_IgnoreMobiles != value)
-                {
-                    m_IgnoreMobiles = value;
-                    Delta(MobileDelta.Flags);
-                }
-            }
         }
 
         [CommandProperty(AccessLevel.GameMaster)]
@@ -952,18 +936,6 @@ namespace Server.Mobiles
             return true;
         }
 
-        public override int GetPacketFlags(bool stygianAbyss)
-        {
-            var flags = base.GetPacketFlags(stygianAbyss);
-
-            if (m_IgnoreMobiles)
-            {
-                flags |= 0x10;
-            }
-
-            return flags;
-        }
-
         public bool GetFlag(PlayerFlag flag) => (Flags & flag) != 0;
 
         public void SetFlag(PlayerFlag flag, bool value)
@@ -1247,8 +1219,6 @@ namespace Server.Mobiles
 
         private static void OnLogin(Mobile from)
         {
-            CheckAtrophies(from);
-
             if (AccountHandler.LockdownLevel > AccessLevel.Player)
             {
                 string notice;
@@ -1286,6 +1256,7 @@ namespace Server.Mobiles
 
             if (from is PlayerMobile mobile)
             {
+                mobile.CheckAtrophies();
                 mobile.ClaimAutoStabledPets();
             }
         }
@@ -2337,7 +2308,7 @@ namespace Server.Mobiles
                  pm.DuelPlayer.Eliminated) || base.OnMoveOver(m);
 
         public override bool CheckShove(Mobile shoved) =>
-            m_IgnoreMobiles || TransformationSpellHelper.UnderTransformation(shoved, typeof(WraithFormSpell)) ||
+            IgnoreMobiles || shoved.IgnoreMobiles || TransformationSpellHelper.UnderTransformation(shoved, typeof(WraithFormSpell)) ||
             base.CheckShove(shoved);
 
         protected override void OnMapChange(Map oldMap)
@@ -3229,7 +3200,7 @@ namespace Server.Mobiles
 
             if (AccessLevel > AccessLevel.Player)
             {
-                m_IgnoreMobiles = true;
+                IgnoreMobiles = true;
             }
 
             var list = Stabled;
@@ -3243,7 +3214,8 @@ namespace Server.Mobiles
                 }
             }
 
-            CheckAtrophies(this);
+            CheckKillDecay();
+            CheckAtrophies();
 
             if (Hidden) // Hiding is the only buff where it has an effect that's serialized.
             {
@@ -3273,10 +3245,6 @@ namespace Server.Mobiles
                     t.Remove(key);
                 }
             }
-
-            CheckKillDecay();
-
-            CheckAtrophies(this);
 
             base.Serialize(writer);
 
@@ -3406,18 +3374,38 @@ namespace Server.Mobiles
             writer.Write(GameTime);
         }
 
-        public static void CheckAtrophies(Mobile m)
-        {
-            SacrificeVirtue.CheckAtrophy(m);
-            JusticeVirtue.CheckAtrophy(m);
-            CompassionVirtue.CheckAtrophy(m);
-            ValorVirtue.CheckAtrophy(m);
+        // Do we need to run an after serialize?
+        public override bool ShouldExecuteAfterSerialize => ShouldKillDecay() || ShouldAtrophy();
 
-            if (m is PlayerMobile mobile)
-            {
-                ChampionTitleInfo.CheckAtrophy(mobile);
-            }
+        public override void AfterSerialize()
+        {
+            base.AfterSerialize();
+
+            CheckKillDecay();
+            CheckAtrophies();
         }
+
+        public bool ShouldAtrophy()
+        {
+            var sacrifice = SacrificeVirtue.ShouldAtrophy(this);
+            var justice = JusticeVirtue.ShouldAtrophy(this);
+            var compassion = CompassionVirtue.ShouldAtrophy(this);
+            var valor = ValorVirtue.ShouldAtrophy(this);
+            var titles = ChampionTitleInfo.ShouldAtrophy(this);
+
+            return sacrifice || justice || compassion || valor || titles;
+        }
+
+        public void CheckAtrophies()
+        {
+            SacrificeVirtue.CheckAtrophy(this);
+            JusticeVirtue.CheckAtrophy(this);
+            CompassionVirtue.CheckAtrophy(this);
+            ValorVirtue.CheckAtrophy(this);
+            ChampionTitleInfo.CheckAtrophy(this);
+        }
+
+        public bool ShouldKillDecay() => m_ShortTermElapse < GameTime || m_LongTermElapse < GameTime;
 
         public void CheckKillDecay()
         {

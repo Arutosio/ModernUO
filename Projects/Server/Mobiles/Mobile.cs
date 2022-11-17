@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Server.Accounting;
 using Server.Buffers;
-using Server.Collections;
 using Server.ContextMenus;
 using Server.Guilds;
 using Server.Gumps;
@@ -329,6 +328,7 @@ public class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPropertyLis
     private int m_WarmodeChanges;
     private bool _warmodeSpamValue;
     private IWeapon m_Weapon;
+    private bool _ignoreMobiles;
 
     private bool m_YellowHealthbar;
     private List<StatMod> _statMods;
@@ -404,6 +404,20 @@ public class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPropertyLis
     public static int MaxPlayerResistance { get; set; } = 70;
 
     public virtual bool NewGuildDisplay => false;
+
+    [CommandProperty(AccessLevel.GameMaster)]
+    public virtual bool IgnoreMobiles
+    {
+        get => _ignoreMobiles;
+        set
+        {
+            if (_ignoreMobiles != value)
+            {
+                _ignoreMobiles = value;
+                Delta(MobileDelta.Flags);
+            }
+        }
+    }
 
     public List<Mobile> Stabled { get; private set; }
 
@@ -1553,7 +1567,7 @@ public class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPropertyLis
                 return m_BankBox;
             }
 
-            m_BankBox = FindItemOnLayer(Layer.Bank) as BankBox;
+            m_BankBox = FindItemOnLayer<BankBox>(Layer.Bank);
 
             if (m_BankBox == null)
             {
@@ -1571,7 +1585,7 @@ public class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPropertyLis
         {
             if (m_Backpack?.Deleted != false || m_Backpack.Parent != this)
             {
-                m_Backpack = FindItemOnLayer(Layer.Backpack) as Container;
+                m_Backpack = FindItemOnLayer<Container>(Layer.Backpack);
             }
 
             return m_Backpack;
@@ -2387,6 +2401,12 @@ public class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPropertyLis
         writer.Write((byte)m_IntLock);
     }
 
+    public virtual bool ShouldExecuteAfterSerialize => false;
+
+    public virtual void AfterSerialize()
+    {
+    }
+
     public bool Deleted { get; private set; }
 
     public virtual void Delete()
@@ -3172,14 +3192,17 @@ public class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPropertyLis
         Resistances[3] += BasePoisonResistance;
         Resistances[4] += BaseEnergyResistance;
 
-        for (var i = 0; i < _resistanceMods.Count; i++)
+        if (_resistanceMods != null)
         {
-            var mod = _resistanceMods[i];
-            var v = (int)mod.Type;
-
-            if (v >= 0 && v < Resistances.Length)
+            for (var i = 0; i < _resistanceMods.Count; i++)
             {
-                Resistances[v] += mod.Offset;
+                var mod = _resistanceMods[i];
+                var v = (int)mod.Type;
+
+                if (v >= 0 && v < Resistances.Length)
+                {
+                    Resistances[v] += mod.Offset;
+                }
             }
         }
 
@@ -6038,10 +6061,6 @@ public class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPropertyLis
     {
     }
 
-    public virtual void BeforeSerialize()
-    {
-    }
-
     public virtual void Deserialize(IGenericReader reader)
     {
         var version = reader.ReadInt();
@@ -6969,6 +6988,11 @@ public class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPropertyLis
             flags |= 0x08;
         }
 
+        if (IgnoreMobiles)
+        {
+            flags |= 0x10;
+        }
+
         if (m_Warmode)
         {
             flags |= 0x40;
@@ -7380,11 +7404,14 @@ public class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPropertyLis
     {
         if (m_BankBox?.Deleted != false || m_BankBox.Parent != this)
         {
-            m_BankBox = FindItemOnLayer(Layer.Bank) as BankBox;
+            m_BankBox = FindItemOnLayer<BankBox>(Layer.Bank);
         }
 
         return m_BankBox;
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public T FindItemOnLayer<T>(Layer layer) where T : Item => FindItemOnLayer(layer) as T;
 
     public Item FindItemOnLayer(Layer layer)
     {
@@ -7395,6 +7422,7 @@ public class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPropertyLis
         {
             var item = eq[i];
 
+            // TODO: We only allow 1 item per layer. It's an implicit contract.
             if (!item.Deleted && item.Layer == layer)
             {
                 return item;
@@ -7438,15 +7466,8 @@ public class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPropertyLis
         eable.Free();
     }
 
-    public bool PlaceInBackpack(Item item)
-    {
-        if (item.Deleted)
-        {
-            return false;
-        }
-
-        return Backpack?.TryDropItem(this, item, false) == true;
-    }
+    public bool PlaceInBackpack(Item item) =>
+        !item.Deleted && Backpack?.TryDropItem(this, item, false) == true;
 
     public bool AddToBackpack(Item item)
     {
@@ -7479,10 +7500,8 @@ public class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPropertyLis
         from == this || from.AccessLevel > AccessLevel && from.AccessLevel >= AccessLevel.GameMaster;
 
     public virtual bool CheckTrade(
-        Mobile to, Item item, SecureTradeContainer cont, bool message, bool checkItems,
-        int plusItems, int plusWeight
-    ) =>
-        true;
+        Mobile to, Item item, SecureTradeContainer cont, bool message, bool checkItems, int plusItems, int plusWeight
+    ) => true;
 
     public virtual bool OpenTrade(Mobile from, Item offer = null)
     {
@@ -8372,6 +8391,33 @@ public class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPropertyLis
         return false;
     }
 
+    public virtual void RemoveStatMod(StatMod mod)
+    {
+        if (mod == null)
+        {
+            return;
+        }
+
+        // Remove it just in case it was orphaned somehow.
+        mod.Remove();
+
+        if (_statMods == null)
+        {
+            return;
+        }
+
+        if (_statMods.Remove(mod))
+        {
+            CheckStatTimers();
+            Delta(MobileDelta.Stat | GetStatDelta(mod.Type));
+        }
+
+        if (_statMods.Count == 0)
+        {
+            _statMods = null;
+        }
+    }
+
     public virtual void RemoveStatMod(string name)
     {
         if (_statMods == null || name == null)
@@ -8385,11 +8431,11 @@ public class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPropertyLis
             if (mod.Name == name)
             {
                 _statMods.RemoveAt(i);
+                mod.Remove();
                 CheckStatTimers();
                 Delta(MobileDelta.Stat | GetStatDelta(mod.Type));
             }
         }
-
 
         if (_statMods.Count == 0)
         {
@@ -8397,7 +8443,7 @@ public class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPropertyLis
         }
     }
 
-    public virtual StatMod GetStatMod(string name)
+    public virtual StatMod GetStatMod(string name, bool includeElapsed = false)
     {
         if (_statMods == null || name == null)
         {
@@ -8407,7 +8453,7 @@ public class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPropertyLis
         for (var i = 0; i < _statMods.Count; i++)
         {
             var mod = _statMods[i];
-            if (mod.Name == name)
+            if (mod.Name == name && !mod.HasElapsed() || includeElapsed)
             {
                 return mod;
             }
@@ -8423,6 +8469,7 @@ public class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPropertyLis
             return;
         }
 
+        _statMods ??= new List<StatMod>();
         _statMods.Add(mod);
         Delta(MobileDelta.Stat | GetStatDelta(mod.Type));
         CheckStatTimers();
@@ -8451,39 +8498,24 @@ public class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPropertyLis
     }
 
     /// <summary>
-    ///     Computes the total modified offset for the specified stat type. Expired <see cref="StatMod" /> instances are removed.
+    ///     Computes the total modified offset for the specified stat type.
     /// </summary>
     public int GetStatOffset(StatType type)
     {
-        _statMods ??= new List<StatMod>();
-
-        if (_statMods.Count <= 0)
+        if (_statMods == null || _statMods.Count == 0)
         {
             return 0;
         }
 
         var offset = 0;
 
-        using var queue = PooledRefQueue<StatMod>.Create(8);
         for (var i = 0; i < _statMods.Count; i++)
         {
             var mod = _statMods[i];
-            if (mod.HasElapsed())
-            {
-                queue.Enqueue(mod);
-            }
-            else if ((mod.Type & type) != 0)
+            if ((mod.Type & type) != 0 && !mod.HasElapsed())
             {
                 offset += mod.Offset;
             }
-        }
-
-        while (queue.Count > 0)
-        {
-            var mod = queue.Dequeue();
-            _statMods.Remove(mod);
-            Delta(MobileDelta.Stat | GetStatDelta(mod.Type));
-            CheckStatTimers();
         }
 
         return offset;

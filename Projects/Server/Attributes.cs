@@ -1,6 +1,22 @@
+/*************************************************************************
+ * ModernUO                                                              *
+ * Copyright 2019-2022 - ModernUO Development Team                       *
+ * Email: hi@modernuo.com                                                *
+ * File: Attributes.cs                                                   *
+ *                                                                       *
+ * This program is free software: you can redistribute it and/or modify  *
+ * it under the terms of the GNU General Public License as published by  *
+ * the Free Software Foundation, either version 3 of the License, or     *
+ * (at your option) any later version.                                   *
+ *                                                                       *
+ * You should have received a copy of the GNU General Public License     *
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>. *
+ *************************************************************************/
+
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using ModernUO.Serialization;
 
 namespace Server;
 
@@ -88,11 +104,6 @@ public class TypeAliasAttribute : Attribute
     public string[] Aliases { get; }
 }
 
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
-public class ParsableAttribute : Attribute
-{
-}
-
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Enum)]
 public class CustomEnumAttribute : Attribute
 {
@@ -128,6 +139,31 @@ public class CommandPropertyAttribute : Attribute
     }
 
     public CommandPropertyAttribute(AccessLevel readLevel, AccessLevel writeLevel)
+    {
+        ReadLevel = readLevel;
+        WriteLevel = writeLevel;
+    }
+
+    public AccessLevel ReadLevel { get; }
+    public AccessLevel WriteLevel { get; }
+    public bool ReadOnly { get; }
+    public bool CanModify { get; }
+}
+
+[AttributeUsage(AttributeTargets.Field)]
+public class SerializedCommandPropertyAttribute : SerializedPropertyAttrAttribute<CommandPropertyAttribute>
+{
+    public SerializedCommandPropertyAttribute(
+        AccessLevel level,
+        bool readOnly = false,
+        bool canModify = false
+    ) : this(level, level)
+    {
+        ReadOnly = readOnly;
+        CanModify = canModify;
+    }
+
+    public SerializedCommandPropertyAttribute(AccessLevel readLevel, AccessLevel writeLevel)
     {
         ReadLevel = readLevel;
         WriteLevel = writeLevel;

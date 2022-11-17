@@ -1041,6 +1041,12 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
         }
     }
 
+    public virtual bool ShouldExecuteAfterSerialize => false;
+
+    public virtual void AfterSerialize()
+    {
+    }
+
     public void MoveToWorld(WorldLocation worldLocation)
     {
         MoveToWorld(worldLocation.Location, worldLocation.Map);
@@ -2034,7 +2040,7 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
 
             if (ip.IsAccessibleTo(from)
                 && rpm?.CheckNonlocalDrop(from, this, ip) != false
-                && (!ip.Movable || rpm == from || ip.Map == bounce.Map && root.Location == bounce.WorldLoc)
+                && (!ip.Movable || rpm == from || ip.Map == bounce.Map && root?.Location == bounce.WorldLoc)
                )
             {
                 Location = bounce.Location;
@@ -2305,7 +2311,7 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
 
     public virtual bool OnDragDrop(Mobile from, Item dropped)
     {
-        var success = Parent is Container container && container.OnStackAttempt(from, this, dropped) ||
+        var success = (Parent as Container)?.OnStackAttempt(from, this, dropped) ??
                       StackWith(from, dropped);
 
         if (success && Spawner != null)
@@ -2551,10 +2557,6 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
         }
     }
 
-    public virtual void BeforeSerialize()
-    {
-    }
-
     public virtual void Deserialize(IGenericReader reader)
     {
         var version = reader.ReadInt();
@@ -2678,7 +2680,7 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
 
                         if (m_Parent == null && (parent.IsMobile || parent.IsItem))
                         {
-                            Delete();
+                            Timer.DelayCall(Delete);
                         }
                     }
 
@@ -2839,7 +2841,7 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
 
                         if (m_Parent == null && (parent.IsMobile || parent.IsItem))
                         {
-                            Delete();
+                            Timer.DelayCall(Delete);
                         }
                     }
 
@@ -2957,7 +2959,7 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
 
                     if (m_Parent == null && (parent.IsMobile || parent.IsItem))
                     {
-                        Delete();
+                        Timer.DelayCall(Delete);
                     }
 
                     var count = reader.ReadInt();

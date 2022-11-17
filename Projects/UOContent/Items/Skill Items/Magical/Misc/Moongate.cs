@@ -315,7 +315,7 @@ namespace Server.Items
 
             writer.Write(1); // version
 
-            TextDefinition.Serialize(writer, Message);
+            writer.Write(Message);
 
             writer.WriteEncodedInt(GumpWidth);
             writer.WriteEncodedInt(GumpHeight);
@@ -336,7 +336,7 @@ namespace Server.Items
             {
                 case 1:
                     {
-                        Message = TextDefinition.Deserialize(reader);
+                        Message = reader.ReadTextDefinition();
                         goto case 0;
                     }
                 case 0:

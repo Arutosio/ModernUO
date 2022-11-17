@@ -20,6 +20,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
@@ -123,7 +124,9 @@ public static class Core
     [ThreadStatic]
     private static long _tickCount;
 
-    [ThreadStatic]
+    // Don't access this from other threads than the game thread.
+    // Persistence accesses this via AfterSerialize or Serialize in other threads, but the value is set and won't change
+    // since the game loop is frozen at that moment.
     private static DateTime _now;
 
     // For Unix Stopwatch.Frequency is normalized to 1ns
@@ -153,12 +156,17 @@ public static class Core
 
     public static DateTime Now
     {
-        get => _now == DateTime.MinValue ? DateTime.UtcNow : _now;
-        set => _now = value;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get
+        {
+            // See notes above for _now and why this is a volatile variable.
+            var now = _now;
+            return now == DateTime.MinValue ? DateTime.UtcNow : now;
+        }
     }
 
     private static long _cycleIndex = 1;
-    private static float[] _cyclesPerSecond = new float[100];
+    private static float[] _cyclesPerSecond = new float[128];
 
     public static float CyclesPerSecond => _cyclesPerSecond[(_cycleIndex - 1) % _cyclesPerSecond.Length];
 
@@ -342,7 +350,7 @@ public static class Core
             _                              => "CTRL+C"
         };
 
-        logger.Information($"Detected {keypress} pressed.");
+        logger.Information("Detected {Key} pressed.", keypress);
         e.Cancel = true;
         Kill();
     }
@@ -463,26 +471,19 @@ public static class Core
 
         ServerConfiguration.Load();
 
-        logger.Information($"Running on {RuntimeInformation.FrameworkDescription}");
+        logger.Information("Running on {Framework}", RuntimeInformation.FrameworkDescription);
 
         var s = Arguments;
 
         if (s.Length > 0)
         {
-            logger.Information($"Running with arguments: {s}");
+            logger.Information("Running with arguments: {Args}", s);
         }
 
         if (MultiProcessor)
         {
-            logger.Information($"Optimizing for {ProcessorCount} processor{(ProcessorCount == 1 ? "" : "s")}");
+            logger.Information($"Optimizing for {{ProcessorCount}} processor{(ProcessorCount == 1 ? "" : "s")}", ProcessorCount);
         }
-
-        if (GCSettings.IsServerGC)
-        {
-            logger.Information("Server garbage collection mode enabled");
-        }
-
-        logger.Information($"High resolution timing ({(Stopwatch.IsHighResolution ? "Supported" : "Unsupported")})");
 
         var assemblyPath = Path.Join(BaseDirectory, AssembliesConfiguration);
 
@@ -666,7 +667,7 @@ public static class Core
             if (errors.Length > 0)
             {
                 Utility.PushColor(ConsoleColor.Red);
-                Console.WriteLine($"{type}\n{errors.ToString()}");
+                Console.WriteLine($"{type}{Environment.NewLine}{errors.ToString()}");
                 Utility.PopColor();
             }
         }
