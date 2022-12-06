@@ -305,19 +305,18 @@ namespace Server.Spells
 
             var mod = target.GetStatMod(name);
 
-            if (mod?.Offset < 0)
+            if (mod != null)
             {
-                target.AddStatMod(new StatMod(type, name, mod.Offset + bonus, duration));
-                return true;
+                if (mod.Offset >= bonus)
+                {
+                    return false;
+                }
+
+                target.RemoveStatMod(mod);
             }
 
-            if (mod == null || mod.Offset <= bonus)
-            {
-                target.AddStatMod(new StatMod(type, name, bonus, duration));
-                return true;
-            }
-
-            return false;
+            target.AddStatMod(new StatMod(type, name, bonus, duration));
+            return true;
         }
 
         public static bool AddStatCurse(Mobile caster, Mobile target, StatType type, TimeSpan duration, bool skillCheck = true) =>
@@ -331,24 +330,23 @@ namespace Server.Spells
 
         public static bool AddStatCurse(Mobile caster, Mobile target, StatType type, int curse, TimeSpan duration)
         {
-            var offset = -curse;
+            var malus = -curse;
             var name = $"[Magic] {type} Curse";
 
             var mod = target.GetStatMod(name);
 
-            if (mod?.Offset > 0)
+            if (mod != null)
             {
-                target.AddStatMod(new StatMod(type, name, mod.Offset + offset, duration));
-                return true;
+                if (mod.Offset <= malus)
+                {
+                    return false;
+                }
+
+                target.RemoveStatMod(mod);
             }
 
-            if (mod == null || mod.Offset > offset)
-            {
-                target.AddStatMod(new StatMod(type, name, offset, duration));
-                return true;
-            }
-
-            return false;
+            target.AddStatMod(new StatMod(type, name, malus, duration));
+            return true;
         }
 
         public static TimeSpan GetDuration(Mobile caster, Mobile target) =>
@@ -617,42 +615,41 @@ namespace Server.Spells
             return false;
         }
 
-        public static void SendInvalidMessage(Mobile caster, TravelCheckType type)
+        private static TextDefinition _travelTo = 1019004;    // You are not allowed to travel there.
+        private static TextDefinition _travelFrom = 502361;   // You cannot teleport into that area from here.
+        private static TextDefinition _teleportTo = 501035;   // You cannot teleport from here to the destination.
+        private static TextDefinition _genericSpell = 501802; // Thy spell doth not appear to work...
+
+        public static TextDefinition InvalidTravelMessage(TravelCheckType type)
         {
-            if (type is TravelCheckType.RecallTo or TravelCheckType.GateTo)
+            return type switch
             {
-                caster.SendLocalizedMessage(1019004); // You are not allowed to travel there.
-            }
-            else if (type == TravelCheckType.TeleportTo)
-            {
-                caster.SendLocalizedMessage(501035); // You cannot teleport from here to the destination.
-            }
-            else
-            {
-                caster.SendLocalizedMessage(501802); // Thy spell doth not appear to work...
-            }
+                TravelCheckType.RecallTo or TravelCheckType.GateTo         => _travelTo,
+                TravelCheckType.RecallFrom or TravelCheckType.TeleportFrom => _travelFrom,
+                TravelCheckType.TeleportTo                                 => _teleportTo,
+                _                                                          => _genericSpell
+            };
         }
 
-        public static bool CheckTravel(Mobile caster, TravelCheckType type) =>
-            CheckTravel(caster, caster.Map, caster.Location, type);
+        public static bool CheckTravel(Mobile caster, TravelCheckType type, out TextDefinition message) =>
+            CheckTravel(caster, caster.Map, caster.Location, type, out message);
 
-        public static bool CheckTravel(Map map, Point3D loc, TravelCheckType type) => CheckTravel(null, map, loc, type);
+        public static bool CheckTravel(Map map, Point3D loc, TravelCheckType type, out TextDefinition message) =>
+            CheckTravel(null, map, loc, type, out message);
 
-        public static bool CheckTravel(Mobile caster, Map map, Point3D loc, TravelCheckType type)
+        public static bool CheckTravel(Mobile caster, Map map, Point3D loc, TravelCheckType type, out TextDefinition message)
         {
+            message = null;
+
             if (IsInvalid(map, loc)) // null, internal, out of bounds
             {
-                if (caster != null)
-                {
-                    SendInvalidMessage(caster, type);
-                }
-
+                message = InvalidTravelMessage(type);
                 return false;
             }
 
             // Always allow monsters to teleport
-            if (caster is BaseCreature { Controlled: false, Summoned: false } &&
-                type is TravelCheckType.TeleportTo or TravelCheckType.TeleportFrom)
+            if (type is TravelCheckType.TeleportTo or TravelCheckType.TeleportFrom &&
+                caster is BaseCreature { Controlled: false, Summoned: false })
             {
                 return true;
             }
@@ -661,30 +658,29 @@ namespace Server.Spells
             m_TravelType = type;
 
             var v = (int)type;
-            var isValid = true;
 
             if (caster != null)
             {
                 var destination = Region.Find(loc, map) as BaseRegion;
                 var current = Region.Find(caster.Location, caster.Map) as BaseRegion;
 
-                if (destination?.CheckTravel(caster, loc, type) == false || current?.CheckTravel(caster, loc, type) == false)
+                if (destination?.CheckTravel(caster, loc, type, out message) == false || current?.CheckTravel(caster, loc, type, out message) == false)
                 {
-                    isValid = false;
+                    return false;
                 }
             }
 
-            for (var i = 0; isValid && i < m_Validators.Length; ++i)
+            for (var i = 0; i < m_Validators.Length; ++i)
             {
-                isValid = m_Rules[v, i] || !m_Validators[i](map, loc);
+                var isValid = m_Rules[v, i] || !m_Validators[i](map, loc);
+                if (!isValid)
+                {
+                    message = InvalidTravelMessage(type);
+                    return false;
+                }
             }
 
-            if (!isValid && caster != null)
-            {
-                SendInvalidMessage(caster, type);
-            }
-
-            return isValid;
+            return true;
         }
 
         public static bool IsWindLoc(Point3D loc)

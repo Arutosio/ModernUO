@@ -24,7 +24,8 @@ namespace Server.Items
     }
 
     [SerializationGenerator(7, false)]
-    public abstract partial class BaseClothing : Item, IDyable, IScissorable, IFactionItem, ICraftable, IWearableDurability
+    public abstract partial class BaseClothing
+        : Item, IDyable, IScissorable, IFactionItem, ICraftable, IWearableDurability, IAosItem
     {
         [SerializableFieldSaveFlag(0)]
         private bool ShouldSerializeResource() => _resource != DefaultResource;
@@ -440,7 +441,7 @@ namespace Server.Items
                     }
                     else
                     {
-                        from.SendMessage("Only {0} may use this.", RequiredRace.PluralName);
+                        from.SendMessage($"Only {RequiredRace.PluralName} may use this.");
                     }
 
                     return false;
@@ -552,7 +553,7 @@ namespace Server.Items
                         }
                         else
                         {
-                            m.SendMessage("Only {0} may use this.", clothing.RequiredRace.PluralName);
+                            m.SendMessage($"Only {clothing.RequiredRace.PluralName} may use this.");
                         }
 
                         m.AddToBackpack(clothing);

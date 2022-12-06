@@ -807,10 +807,9 @@ public static class Utility
     }
 
     public static bool ToBoolean(string value) =>
-        bool.TryParse(value, out var b) && b ||
-        value.InsensitiveEquals("enabled") ||
-        value.InsensitiveEquals("on") ||
-        !value.InsensitiveEquals("disabled") && !value.InsensitiveEquals("off");
+        bool.TryParse(value, out var b)
+            ? b
+            : value.InsensitiveEquals("enabled") || value.InsensitiveEquals("on");
 
     public static double ToDouble(string value)
     {
@@ -1042,6 +1041,102 @@ public static class Utility
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static T RandomElement<T>(this IList<T> list) => list.RandomElement(default);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static WeightedValue<T> RandomWeightedElement<T>(this IList<WeightedValue<T>> weightedValues)
+    {
+        var totalWeight = 0;
+        for (var i = 0; i < weightedValues.Count; i++)
+        {
+            totalWeight += weightedValues[i].Weight;
+        }
+
+        return RandomWeightedElement(weightedValues, totalWeight);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static WeightedValue<T> RandomWeightedElement<T>(this ReadOnlySpan<WeightedValue<T>> weightedValues, int totalWeight)
+    {
+        var random = Random(totalWeight);
+
+        for (var i = 0; i < weightedValues.Length; i++)
+        {
+            var weightedValue = weightedValues[i];
+            random -= weightedValue.Weight;
+
+            if (random <= 0)
+            {
+                return weightedValue;
+            }
+        }
+
+        return default;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static WeightedValue<T> RandomWeightedElement<T>(this ReadOnlySpan<WeightedValue<T>> weightedValues)
+    {
+        var totalWeight = 0;
+        for (var i = 0; i < weightedValues.Length; i++)
+        {
+            totalWeight += weightedValues[i].Weight;
+        }
+
+        return RandomWeightedElement(weightedValues, totalWeight);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static WeightedValue<T> RandomWeightedElement<T>(this IList<WeightedValue<T>> weightedValues, int totalWeight)
+    {
+        var random = Random(totalWeight);
+
+        for (var i = 0; i < weightedValues.Count; i++)
+        {
+            var weightedValue = weightedValues[i];
+            random -= weightedValue.Weight;
+
+            if (random <= 0)
+            {
+                return weightedValue;
+            }
+        }
+
+        return default;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static WeightedValue<T> RandomWeightedElement<T>(this PooledRefList<WeightedValue<T>> weightedValues)
+    {
+        var totalWeight = 0;
+        for (var i = 0; i < weightedValues.Count; i++)
+        {
+            totalWeight += weightedValues[i].Weight;
+        }
+
+        return RandomWeightedElement(weightedValues, totalWeight);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static WeightedValue<T> RandomWeightedElement<T>(
+        this PooledRefList<WeightedValue<T>> weightedValues,
+        int totalWeight
+    )
+    {
+        var random = Random(totalWeight);
+
+        for (var i = 0; i < weightedValues.Count; i++)
+        {
+            var weightedValue = weightedValues[i];
+            random -= weightedValue.Weight;
+
+            if (random <= 0)
+            {
+                return weightedValue;
+            }
+        }
+
+        return default;
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static T TakeRandomElement<T>(this IList<T> list)

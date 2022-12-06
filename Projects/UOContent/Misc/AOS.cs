@@ -199,10 +199,10 @@ namespace Server
             if (from is { Deleted: false, Alive: true })
             {
                 var reflectPhys = AosAttributes.GetValue(m, AosAttribute.ReflectPhysical);
-                var reflectPhysAbility = bcFrom?.GetAbility(MonsterAbilityType.ReflectPhysicalDamage) as ReflectPhysicalDamage;
+                var reflectPhysAbility = bcFrom
+                    ?.GetAbility(MonsterAbilityType.ReflectPhysicalDamage) as ReflectPhysicalDamage;
 
-                if (reflectPhysAbility
-                        ?.CanTrigger(bcFrom, MonsterAbilityTrigger.CombatAction) == true)
+                if (reflectPhysAbility?.CanTrigger(bcFrom, MonsterAbilityTrigger.CombatAction) == true)
                 {
                     reflectPhys += reflectPhysAbility.PercentReflected;
                     m.SendLocalizedMessage(1070844); // The creature repels the attack back at you.
@@ -302,6 +302,11 @@ namespace Server
         SpellChanneling = 0x00200000,
         NightSight = 0x00400000,
         IncreasedKarmaLoss = 0x00800000
+    }
+
+    public interface IAosItem
+    {
+        public AosAttributes Attributes { get; }
     }
 
     public sealed class AosAttributes : BaseAttributes

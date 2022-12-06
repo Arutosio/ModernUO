@@ -28,7 +28,7 @@ namespace Server.Items
         Exceptional
     }
 
-    public class Spellbook : Item, ICraftable, ISlayer
+    public class Spellbook : Item, ICraftable, ISlayer, IAosItem
     {
         private static readonly Dictionary<Mobile, List<Spellbook>> m_Table = new();
 
@@ -283,10 +283,7 @@ namespace Server.Items
 
                 CommandLogging.WriteLine(
                     from,
-                    "{0} {1} filling spellbook {2}",
-                    from.AccessLevel,
-                    CommandLogging.Format(from),
-                    CommandLogging.Format(book)
+                    $"{from.AccessLevel} {CommandLogging.Format(from)} filling spellbook {CommandLogging.Format(book)}"
                 );
             }
             else

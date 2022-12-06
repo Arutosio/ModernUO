@@ -1130,7 +1130,15 @@ namespace Server.Mobiles
             for (var i = 0; i < abilities.Length; i++)
             {
                 var ability = abilities[i];
-                if (ability.AbilityType == type)
+                if (ability is MonsterAbilityGroup group)
+                {
+                    ability = group.GetAbilityWithType(type);
+                    if (ability != null)
+                    {
+                        return ability;
+                    }
+                }
+                else if (ability.AbilityType == type)
                 {
                     return ability;
                 }
@@ -1141,6 +1149,11 @@ namespace Server.Mobiles
 
         public virtual bool HasAbility(MonsterAbility ability)
         {
+            if (ability == null)
+            {
+                return false;
+            }
+
             var abilities = GetMonsterAbilities();
 
             if (abilities == null)
@@ -1150,7 +1163,7 @@ namespace Server.Mobiles
 
             for (var i = 0; i < abilities.Length; i++)
             {
-                if (abilities[i] == ability)
+                if (abilities[i] == ability || (ability as MonsterAbilityGroup)?.HasAbility(ability) == true)
                 {
                     return true;
                 }
@@ -1159,23 +1172,27 @@ namespace Server.Mobiles
             return false;
         }
 
-        public virtual void TriggerAbility(MonsterAbilityTrigger trigger, Mobile defender)
+        public virtual bool TriggerAbility(MonsterAbilityTrigger trigger, Mobile defender)
         {
             var abilities = GetMonsterAbilities();
 
             if (abilities == null)
             {
-                return;
+                return false;
             }
 
+            var triggered = false;
             for (var i = 0; i < abilities.Length; i++)
             {
                 var ability = abilities[i];
                 if (ability.WillTrigger(trigger) && ability.CanTrigger(this, trigger))
                 {
                     ability.Trigger(trigger, this, defender);
+                    triggered = true;
                 }
             }
+
+            return triggered;
         }
 
         public virtual void TriggerAbilityMove(MonsterAbilityTrigger trigger, Mobile defender, Direction d)
@@ -3459,11 +3476,11 @@ namespace Server.Mobiles
                 {
                     if (target.Title == null)
                     {
-                        SendMessage("{0} cannot be harmed.", target.Name);
+                        SendMessage($"{target.Name} cannot be harmed.");
                     }
                     else
                     {
-                        SendMessage("{0} {1} cannot be harmed.", target.Name, target.Title);
+                        SendMessage($"{target.Name} {target.Title} cannot be harmed.");
                     }
                 }
 
@@ -3826,7 +3843,7 @@ namespace Server.Mobiles
                 for (var i = 0; i < pm.AllFollowers.Count; i++)
                 {
                     var m = pm.AllFollowers[i];
-                    if (master.InRange(m, 3) && m is BaseCreature
+                    if (m.Map == master.Map && master.InRange(m, 3) && m is BaseCreature
                             { Controlled: true, ControlOrder: OrderType.Guard or OrderType.Follow or OrderType.Come } pet &&
                         pet.ControlMaster == master && (!onlyBonded || pet.IsBonded))
                     {
@@ -4286,7 +4303,6 @@ namespace Server.Mobiles
 
         public virtual void OnActionCombat()
         {
-            TriggerAbility(MonsterAbilityTrigger.CombatAction, null);
         }
 
         public virtual void OnActionGuard()
@@ -4828,7 +4844,7 @@ namespace Server.Mobiles
         }
 
         // If this needs to be serialized, recommend creating a hash or registry id. Don't serialize strings.
-        public virtual string SpeedClass => null;
+        public virtual SpeedLevel SpeedClass => SpeedLevel.None;
 
         public virtual void GetSpeeds(out double activeSpeed, out double passiveSpeed)
         {
