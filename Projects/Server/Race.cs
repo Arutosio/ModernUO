@@ -6,6 +6,7 @@ namespace Server;
 
 public abstract class Race : ISpanParsable<Race>
 {
+    public enum EnumRaces { Human = 0, Elf = 1, Gargoyle = 2, DarkElf = 3, Orc = 4, Vampire = 5, Dwarf = 6, Demon = 7 }
     protected Race(
         int raceID, int raceIndex, string name, string pluralName, int maleBody, int femaleBody,
         int maleGhostBody, int femaleGhostBody, Expansion requiredExpansion
@@ -28,11 +29,18 @@ public abstract class Race : ISpanParsable<Race>
 
     public static Race[] Races { get; } = new Race[0x100];
 
-    public static Race DefaultRace => Races[0];
+    public static Race DefaultRace => Races[(int)EnumRaces.Human];
 
-    public static Race Human => Races[0];
-    public static Race Elf => Races[1];
-    public static Race Gargoyle => Races[2];
+    public static Race Human => Races[(int)EnumRaces.Human];
+    public static Race Elf => Races[(int)EnumRaces.Elf];
+    public static Race Gargoyle => Races[(int)EnumRaces.Gargoyle];
+
+    //Custom Races
+    public static Race DarkElf => Races[(int)EnumRaces.DarkElf];
+    public static Race Orc => Races[(int)EnumRaces.Orc];
+    public static Race Vampire => Races[(int)EnumRaces.Vampire];
+    public static Race Dwarf => Races[(int)EnumRaces.Dwarf];
+    public static Race Demon => Races[(int)EnumRaces.Demon];
 
     public static List<Race> AllRaces { get; } = new();
 
@@ -40,6 +48,14 @@ public abstract class Race : ISpanParsable<Race>
     public const int AllowHumanOrElves = 0x3;  // Race.Human.RaceFlag | Race.Elf.RaceFlag
     public const int AllowElvesOnly = 0x2;     // Race.Elf.RaceFlag
     public const int AllowGargoylesOnly = 0x4; // Race.Gargoyle.RaceFlag
+
+    public static Race GetRace(string value)
+    {
+        foreach (Race r in Races)
+            if (r.Name.ToLower().Equals(value.ToLower()))
+                return r;
+        return null;
+    }
 
     public Expansion RequiredExpansion { get; }
 
