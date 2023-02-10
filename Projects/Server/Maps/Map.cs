@@ -1057,8 +1057,17 @@ public sealed class Map : IComparable<Map>, ISpanFormattable, ISpanParsable<Map>
         }
         else if (o is Item item)
         {
-            p = item.GetWorldLocation();
-            p.Z += item.ItemData.Height / 2 + 1;
+            // Calculate the height based on the container, not the item inside.
+            var rootParent = item.RootParent;
+            if (rootParent != null)
+            {
+                p = GetPoint(rootParent, eye);
+            }
+            else
+            {
+                p = item.GetWorldLocation();
+                p.Z += item.ItemData.Height / 2 + 1;
+            }
         }
         else if (o is Point3D point3D)
         {

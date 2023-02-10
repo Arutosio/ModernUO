@@ -6,6 +6,7 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Xml;
 using Microsoft.Toolkit.HighPerformance;
@@ -1455,74 +1456,66 @@ public static class Utility
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool Remove<T>(ref List<T> list, T value)
     {
-        if (list != null)
+        if (list?.Remove(value) != true)
         {
-            var removed = list.Remove(value);
-
-            if (list.Count == 0)
-            {
-                list = null;
-            }
-
-            return removed;
+            return false;
         }
 
-        return false;
+        if (list.Count == 0)
+        {
+            list = null;
+        }
+
+        return true;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool Remove<T>(ref HashSet<T> set, T value)
     {
-        if (set != null)
+        if (set?.Remove(value) != true)
         {
-            var removed = set.Remove(value);
-
-            if (set.Count == 0)
-            {
-                set = null;
-            }
-
-            return removed;
+            return false;
         }
 
-        return false;
+        if (set.Count == 0)
+        {
+            set = null;
+        }
+
+        return true;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool Remove<K, V>(ref Dictionary<K, V> dict, K key)
     {
-        if (dict != null)
+        if (dict?.Remove(key) != true)
         {
-            var removed = dict.Remove(key);
-
-            if (dict.Count == 0)
-            {
-                dict = null;
-            }
-
-            return removed;
+            return false;
         }
 
-        return false;
+        if (dict.Count == 0)
+        {
+            dict = null;
+        }
+
+        return true;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool Remove<K, V>(ref Dictionary<K, V> dict, K key, out V value)
     {
-        if (dict != null)
+        if (dict?.Remove(key, out value) != true)
         {
-            var removed = dict.Remove(key, out value);
-
-            if (dict.Count == 0)
-            {
-                dict = null;
-            }
-
-            return removed;
+            value = default;
+            return false;
         }
 
-        value = default;
-        return false;
+        if (dict.Count == 0)
+        {
+            dict = null;
+        }
+
+        return true;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1703,4 +1696,20 @@ public static class Utility
 
         return center;
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int GetUnderlyingNumericBitLength(this TypeCode typeCode) =>
+        typeCode switch
+        {
+            TypeCode.Byte   => 8,
+            TypeCode.SByte  => 8,
+            TypeCode.Int16  => 16,
+            TypeCode.UInt16 => 16,
+            TypeCode.Char   => 16,
+            TypeCode.Int32  => 32,
+            TypeCode.UInt32 => 32,
+            TypeCode.Int64  => 64,
+            TypeCode.UInt64 => 64,
+            _               => 64
+        };
 }

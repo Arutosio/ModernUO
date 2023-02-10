@@ -24,9 +24,11 @@ jobs:
     - name: Setup .NET 7
       uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: 7.0.100
+        dotnet-version: 7.0.101
     - name: Build
       run: ./publish.cmd Release
+    - name: Migration Changes
+      run: git diff --exit-code ./**/Migrations/*.v*.json
     - name: Test
       run: dotnet test --no-restore
 
@@ -44,6 +46,9 @@ jobs:
           - container: debian:bullseye
             name: Debian 11
             packageManager: apt
+          - container: fedora:37
+            name: Fedora 37
+            packageManager: dnf
           - container: fedora:36
             name: Fedora 36
             packageManager: dnf
@@ -59,10 +64,10 @@ jobs:
         run: dnf upgrade --refresh -y && dnf install -y epel-release epel-next-release
         if: ${{ startsWith(matrix.name, 'CentOS')  }}
       - name: Install Prerequisites using dnf
-        run: dnf makecache --refresh && dnf install -y findutils libicu zlib-devel zstd libargon2-devel
+        run: dnf makecache --refresh && dnf install -y findutils libicu zlib-devel zstd libargon2-devel tzdata
         if: ${{ matrix.packageManager == 'dnf' }}
       - name: Install Prerequisites using apt
-        run: apt-get update -y && apt-get install -y curl libicu-dev libz-dev zstd libargon2-dev
+        run: apt-get update -y && apt-get install -y curl libicu-dev libz-dev zstd libargon2-dev tzdata
         if: ${{ matrix.packageManager == 'apt' }}
       - uses: actions/checkout@v3
         with:
@@ -70,7 +75,7 @@ jobs:
       - name: Setup .NET 7
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: 7.0.100
+          dotnet-version: 7.0.101
       - name: Build
         run: ./publish.sh Release
       - name: Test

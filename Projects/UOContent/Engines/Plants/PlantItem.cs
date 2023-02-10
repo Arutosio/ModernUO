@@ -56,8 +56,14 @@ namespace Server.Engines.Plants
 
         public PlantSystem PlantSystem { get; private set; }
 
-        public ObjectPropertyList OldClientPropertyList =>
-            _oldClientPropertyList ??= InitializePropertyList(new ObjectPropertyList(this));
+        public ObjectPropertyList OldClientPropertyList
+        {
+            get
+            {
+                InitializePropertyList(_oldClientPropertyList ??= new ObjectPropertyList(this));
+                return _oldClientPropertyList;
+            }
+        }
 
         public override bool ForceShowProperties => ObjectPropertyList.Enabled;
 
@@ -239,12 +245,11 @@ namespace Server.Engines.Plants
             InvalidateProperties();
         }
 
-        private ObjectPropertyList InitializePropertyList(ObjectPropertyList list)
+        private void InitializePropertyList(ObjectPropertyList list)
         {
             GetProperties(list);
             AppendChildProperties(list);
             list.Terminate();
-            return list;
         }
 
         // Overridden to support new and old client localization
@@ -369,7 +374,7 @@ namespace Server.Engines.Plants
             if (m_PlantStatus < PlantStatus.Seed)
             {
                 // Clients above 7.0.12.0 use the regular PropertyList
-                if (list != OldClientPropertyList)
+                if (list != _oldClientPropertyList)
                 {
                     // a ~1_val~ of ~2_val~ dirt
                     list.Add(1060830, $"{container:#}\t{dirt:#}");
