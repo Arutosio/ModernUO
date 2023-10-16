@@ -1,4 +1,6 @@
 using ModernUO.Serialization;
+using Server.Items;
+using Server.UOContent.ArutosioContent;
 
 namespace Server.Mobiles
 {
@@ -35,6 +37,9 @@ namespace Server.Mobiles
             Karma = -3500;
 
             VirtualArmor = 40;
+
+            //Arutosio Set
+            Kills = 5;
         }
 
         public override string CorpseName => "a troll corpse";
@@ -47,6 +52,15 @@ namespace Server.Mobiles
         public override void GenerateLoot()
         {
             AddLoot(LootPack.Average);
+        }
+
+        public override void OnCarve(Mobile from, Corpse corpse, Item with)
+        {
+            if (!corpse.Carved)
+            {
+                corpse.AddItem(new TrollHides());
+            }
+            base.OnCarve(from, corpse, with);
         }
     }
 }

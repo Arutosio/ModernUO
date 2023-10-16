@@ -1,5 +1,7 @@
 using ModernUO.Serialization;
 using Server.Items;
+using System;
+using Server.UOContent.ArutosioContent;
 
 namespace Server.Mobiles
 {
@@ -57,6 +59,15 @@ namespace Server.Mobiles
             AddLoot(LootPack.Average);
             AddLoot(LootPack.MedScrolls);
             AddLoot(LootPack.Gems, Utility.RandomMinMax(1, 4));
+        }
+
+        public override void OnCarve(Mobile from, Corpse corpse, Item with)
+        {
+            if (!corpse.Carved)
+            {
+                corpse.AddItem(new GargoyleHides());
+            }
+            base.OnCarve(from, corpse, with);
         }
     }
 }
