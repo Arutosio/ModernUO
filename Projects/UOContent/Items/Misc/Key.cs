@@ -74,9 +74,7 @@ public partial class Key : Item
             return;
         }
 
-        var items = cont.FindItemsByType(new[] { typeof(Key), typeof(KeyRing) });
-
-        foreach (var item in items)
+        foreach (var item in cont.EnumerateItems())
         {
             if (item is Key key)
             {
@@ -85,10 +83,8 @@ public partial class Key : Item
                     key.Delete();
                 }
             }
-            else
+            else if (item is KeyRing keyRing)
             {
-                var keyRing = (KeyRing)item;
-
                 keyRing.RemoveKey(keyValue);
             }
         }
@@ -101,9 +97,7 @@ public partial class Key : Item
             return false;
         }
 
-        var items = cont.FindItemsByType(new[] { typeof(Key), typeof(KeyRing) });
-
-        foreach (var item in items)
+        foreach (var item in cont.EnumerateItems())
         {
             if (item is Key key)
             {
@@ -112,10 +106,8 @@ public partial class Key : Item
                     return true;
                 }
             }
-            else
+            else if (item is KeyRing keyRing)
             {
-                var keyRing = (KeyRing)item;
-
                 if (keyRing.ContainsKey(keyValue))
                 {
                     return true;

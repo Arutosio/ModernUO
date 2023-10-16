@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright 2019-2022 - ModernUO Development Team                       *
+ * Copyright 2019-2023 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: TypeConverter.cs                                                *
  *                                                                       *
@@ -32,7 +32,7 @@ public class TypeConverter : JsonConverter<Type>
         }
 
         var typeName = reader.GetString();
-        var type = AssemblyHandler.FindTypeByName(typeName);
+        var type = AssemblyHandler.FindTypeByName(typeName) ?? AssemblyHandler.FindTypeByName(typeName, true);
         if (type == null)
         {
             logger.Warning("Attempted to deserialize type {Type} which does not exist.", typeName);

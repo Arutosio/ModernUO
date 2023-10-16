@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright (C) 2019-2022 - ModernUO Development Team                   *
+ * Copyright 2019-2023 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: GumpTextEntryLimited.cs                                         *
  *                                                                       *
@@ -50,7 +50,7 @@ public class GumpTextEntryLimited : GumpEntry
 
     public int Size { get; set; }
 
-    public override void AppendTo(ref SpanWriter writer, OrderedHashSet<string> strings, scoped ref int entries, scoped ref int switches)
+    public override void AppendTo(ref SpanWriter writer, OrderedHashSet<string> strings, ref int entries, ref int switches)
     {
         var textIndex = strings.GetOrAdd(InitialText ?? "");
         writer.WriteAscii($"{{ textentrylimited {X} {Y} {Width} {Height} {Hue} {EntryID} {textIndex} {Size} }}");

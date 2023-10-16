@@ -1,4 +1,3 @@
-using System;
 using Server.Network;
 using Xunit;
 
@@ -14,8 +13,8 @@ namespace Server.Tests.Network
             var ns = PacketTestUtilities.CreateTestNetState();
             ns.SendCancelArrow(0, 0, Serial.Zero);
 
-            var result = ns.SendPipe.Reader.TryRead();
-            AssertThat.Equal(result.Buffer[0].AsSpan(0), expected);
+        var result = ns.SendPipe.Reader.AvailableToRead();
+        AssertThat.Equal(result, expected);
         }
 
         [Theory]
@@ -29,8 +28,8 @@ namespace Server.Tests.Network
             var ns = PacketTestUtilities.CreateTestNetState();
             ns.SendSetArrow(x, y, Serial.Zero);
 
-            var result = ns.SendPipe.Reader.TryRead();
-            AssertThat.Equal(result.Buffer[0].AsSpan(0), expected);
+        var result = ns.SendPipe.Reader.AvailableToRead();
+        AssertThat.Equal(result, expected);
         }
 
         [Theory]
@@ -47,8 +46,8 @@ namespace Server.Tests.Network
             ns.ProtocolChanges = ProtocolChanges.HighSeas;
             ns.SendCancelArrow(x, y, serial);
 
-            var result = ns.SendPipe.Reader.TryRead();
-            AssertThat.Equal(result.Buffer[0].AsSpan(0), expected);
+        var result = ns.SendPipe.Reader.AvailableToRead();
+        AssertThat.Equal(result, expected);
         }
 
         [Theory]
@@ -65,8 +64,8 @@ namespace Server.Tests.Network
             ns.ProtocolChanges = ProtocolChanges.HighSeas;
             ns.SendSetArrow(x, y, serial);
 
-            var result = ns.SendPipe.Reader.TryRead();
-            AssertThat.Equal(result.Buffer[0].AsSpan(0), expected);
+        var result = ns.SendPipe.Reader.AvailableToRead();
+        AssertThat.Equal(result, expected);
         }
     }
 }

@@ -6,7 +6,6 @@ using Server.Factions;
 using Server.Gumps;
 using Server.Items;
 using Server.Mobiles;
-using Server.Network;
 using Server.Regions;
 using Server.Spells;
 using Server.Spells.Bushido;
@@ -1837,7 +1836,7 @@ namespace Server.Engines.ConPVP
             mob.RemoveStatMod("Holy Bless");
             mob.RemoveStatMod("Holy Curse");
 
-            OrangePetals.RemoveContext(mob);
+            OrangePetals.RemoveEffect(mob);
 
             mob.Paralyzed = false;
             mob.Hidden = false;
@@ -1855,11 +1854,7 @@ namespace Server.Engines.ConPVP
 
             TransformationSpellHelper.RemoveContext(mob, true);
             AnimalForm.RemoveContext(mob, true);
-
-            if (DisguiseTimers.IsDisguised(mob))
-            {
-                DisguiseTimers.StopTimer(mob);
-            }
+            DisguisePersistence.StopTimer(mob);
 
             if (!mob.CanBeginAction<PolymorphSpell>())
             {

@@ -1,10 +1,10 @@
 using System;
 using System.Reflection;
-using Server.Buffers;
 using Server.Commands;
 using Server.Commands.Generic;
 using Server.Gumps;
 using Server.Targeting;
+using Server.Text;
 using CPA = Server.CommandPropertyAttribute;
 
 using static Server.Attributes;
@@ -363,6 +363,14 @@ namespace Server.Commands
         {
             try
             {
+                // Don't allow staff to be modified if they are under StaffAccess command
+                if (obj is Mobile mob &&
+                    (mob.AccessLevel > from.AccessLevel ||
+                     mob.Account?.AccessLevel > from.AccessLevel))
+                {
+                    return "You cannot modify a higher privileged mobile.";
+                }
+
                 if (toSet is AccessLevel newLevel)
                 {
                     var reqLevel = newLevel switch

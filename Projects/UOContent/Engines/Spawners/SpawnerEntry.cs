@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
-using Server.Mobiles;
 
 namespace Server.Engines.Spawners
 {
@@ -45,11 +44,6 @@ namespace Server.Engines.Spawners
                 if (e != null)
                 {
                     e.Spawner = parent;
-
-                    if (e is BaseCreature creature)
-                    {
-                        creature.RemoveIfUntamed = true;
-                    }
 
                     Spawned.Add(e);
                     parent.Spawned.TryAdd(e, this);

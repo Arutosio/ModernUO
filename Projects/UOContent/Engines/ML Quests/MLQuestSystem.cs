@@ -8,7 +8,6 @@ using Server.Engines.MLQuests.Objectives;
 using Server.Gumps;
 using Server.Items;
 using Server.Mobiles;
-using Server.Network;
 using Server.Utilities;
 
 namespace Server.Engines.MLQuests
@@ -713,7 +712,7 @@ namespace Server.Engines.MLQuests
             }
             else if (quester is Item item)
             {
-                MessageHelper.SendLocalizedMessageTo(item, pm, cliloc, SpeechColor);
+                item.SendLocalizedMessageTo(pm, cliloc, SpeechColor);
             }
             else
             {
@@ -731,7 +730,7 @@ namespace Server.Engines.MLQuests
             }
             else if (quester is Item item)
             {
-                MessageHelper.SendLocalizedMessageTo(item, pm, cliloc, args, SpeechColor);
+                item.SendLocalizedMessageTo(pm, cliloc, args, SpeechColor);
             }
             else
             {
@@ -749,7 +748,7 @@ namespace Server.Engines.MLQuests
             }
             else if (quester is Item item)
             {
-                MessageHelper.SendMessageTo(item, pm, message, SpeechColor);
+                item.SendMessageTo(pm, message, SpeechColor);
             }
             else
             {

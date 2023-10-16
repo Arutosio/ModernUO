@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
+using Server.Collections;
+using Server.Json;
 using Server.Logging;
 using Server.Network;
 using Server.Targeting;
@@ -115,7 +118,7 @@ public enum MusicName
     NoMusic = 0x1FFF
 }
 
-public class Region : IComparable<Region>
+public class Region : IComparable<Region>, IValueLinkListNode<Region>
 {
     private static readonly ILogger logger = LogFactory.GetLogger(typeof(Region));
 
@@ -136,6 +139,7 @@ public class Region : IComparable<Region>
     {
     }
 
+    [JsonConstructor] // Don't include parent, since it is special
     public Region(string name, Map map, int priority, params Rectangle3D[] area) : this(name, map, null, area) =>
         Priority = priority;
 
@@ -172,11 +176,21 @@ public class Region : IComparable<Region>
         }
     }
 
-    // Used during deserialization only
-    public Expansion MinExpansion { get; set; }
+    // Sectors
+    [JsonIgnore]
+    public Region Next { get; set; }
+
+    [JsonIgnore]
+    public Region Previous { get; set; }
+
+    [JsonIgnore]
+    public bool OnLinkList { get; set; }
 
     // Used during deserialization only
-    public Expansion MaxExpansion { get; set; }
+    public Expansion MinExpansion { get; set; } = Expansion.None;
+
+    // Used during deserialization only
+    public Expansion MaxExpansion { get; set; } = Expansion.EJ;
 
     public static List<Region> Regions { get; } = new();
 
@@ -188,19 +202,21 @@ public class Region : IComparable<Region>
 
     public Map Map { get; }
 
-    public Region Parent { get; }
+    [JsonInclude]
+    [JsonConverter(typeof(RegionByNameConverter))]
+    public Region Parent { get; private set; }
 
     public List<Region> Children { get; } = new();
 
     public Rectangle3D[] Area { get; }
 
-    public Sector[] Sectors { get; private set; }
+    public Map.Sector[] Sectors { get; private set; }
 
     public bool Dynamic { get; }
 
     public int Priority { get; }
 
-    public int ChildLevel { get; }
+    public int ChildLevel { get; internal set; }
 
     public bool Registered { get; private set; }
 
@@ -330,14 +346,14 @@ public class Region : IComparable<Region>
 
         Map.RegisterRegion(this);
 
-        var sectors = new List<Sector>();
+        var sectors = new List<Map.Sector>();
 
         for (var i = 0; i < Area.Length; i++)
         {
             var rect = Area[i];
 
-            var start = Map.Bound(new Point2D(rect.Start.X, rect.Start.Y));
-            var end = Map.Bound(new Point2D(rect.End.X, rect.End.Y));
+            var start = Map.Bound(new Point2D(rect.Start));
+            var end = Map.Bound(new Point2D(rect.End));
 
             var startSector = Map.GetSector(start);
             var endSector = Map.GetSector(end);

@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright 2019-2022 - ModernUO Development Team                       *
+ * Copyright 2019-2023 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: ArrayEnumerator.cs                                              *
  *                                                                       *
@@ -48,7 +48,7 @@ public struct ArrayEnumerator<T> : IEnumerator<T>
 
         if ((uint)_index < (uint)localList.Length)
         {
-            _current = _array[_index++];
+            _current = localList[_index++];
             return true;
         }
 

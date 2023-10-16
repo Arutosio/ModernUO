@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using ModernUO.Serialization;
-using Server.Buffers;
 using Server.Mobiles;
 using Server.Network;
 using Server.Spells;
+using Server.Text;
 
 namespace Server.Items;
 
@@ -867,7 +867,7 @@ public partial class ConditionTeleporter : Teleporter
         }
 
         if (GetFlag(ConditionFlag.DenyFollowers) &&
-            (m.Followers != 0 || m is PlayerMobile mobile && mobile.AutoStabled.Count != 0))
+            (m.Followers != 0 || m is PlayerMobile mobile && mobile.AutoStabled?.Count != 0))
         {
             m.SendLocalizedMessage(1077250); // No pets permitted beyond this point.
             return false;
@@ -939,7 +939,7 @@ public partial class ConditionTeleporter : Teleporter
     {
         base.GetProperties(list);
 
-        using var props = new ValueStringBuilder(stackalloc char[128]);
+        using var props = ValueStringBuilder.Create(128);
 
         if (GetFlag(ConditionFlag.DenyMounted))
         {

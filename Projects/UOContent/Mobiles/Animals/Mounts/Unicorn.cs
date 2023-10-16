@@ -1,7 +1,6 @@
 using ModernUO.Serialization;
 using System;
 using Server.Items;
-using Server.Network;
 
 namespace Server.Mobiles
 {
@@ -47,6 +46,7 @@ namespace Server.Mobiles
             MinTameSkill = 95.1;
         }
 
+        public override int StepsMax => 4480;
         public override string CorpseName => "a unicorn corpse";
         public override bool AllowMaleRider => false;
         public override bool AllowMaleTamer => false;
@@ -90,12 +90,8 @@ namespace Server.Mobiles
                         // TODO: Confirm if mount is the one flagged for curing it or the rider is
                         if (Rider.CurePoison(this))
                         {
-                            Rider.LocalOverheadMessage(
-                                MessageType.Regular,
-                                0x3B2,
-                                true,
-                                "Your mount senses you are in danger and aids you with magic."
-                            );
+                            // Your mount senses you are in danger and aids you with magic.
+                            Rider.LocalOverheadMessage(MessageType.Regular,0x3B2,1080039);
                             Rider.FixedParticles(0x373A, 10, 15, 5012, EffectLayer.Waist);
                             Rider.PlaySound(0x1E0); // Cure spell effect.
                             Rider.PlaySound(0xA9);  // Unicorn's whinny.

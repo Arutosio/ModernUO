@@ -8,6 +8,7 @@ using Server.Engines.MLQuests;
 using Server.Engines.Quests.Doom;
 using Server.Engines.Quests.Haven;
 using Server.Engines.Spawners;
+using Server.Engines.Virtues;
 using Server.Ethics;
 using Server.Factions;
 using Server.Items;
@@ -1090,31 +1091,9 @@ namespace Server.Mobiles
 
         public HonorContext ReceivedHonorContext { get; set; }
 
-        public List<MLQuest> MLQuests
-        {
-            get
-            {
-                if (m_MLQuests == null)
-                {
-                    if (StaticMLQuester)
-                    {
-                        m_MLQuests = MLQuestSystem.FindQuestList(GetType());
-                    }
-                    else
-                    {
-                        m_MLQuests = ConstructQuestList();
-                    }
-
-                    if (m_MLQuests == null)
-                    {
-                        // return EmptyList, but don't cache it (run construction again next time)
-                        return MLQuestSystem.EmptyList;
-                    }
-                }
-
-                return m_MLQuests;
-            }
-        }
+        public List<MLQuest> MLQuests =>
+            // Assign the quests if we don't have one, and if it is still null, return an empty list
+            (m_MLQuests ??= StaticMLQuester ? MLQuestSystem.FindQuestList(GetType()) : ConstructQuestList()) ?? MLQuestSystem.EmptyList;
 
         public virtual MonsterAbility[] GetMonsterAbilities() => null;
 
@@ -1309,7 +1288,7 @@ namespace Server.Mobiles
                 return false;
             }
 
-            if (m is PlayerMobile mobile && mobile.HonorActive)
+            if (VirtueSystem.GetVirtues(m as PlayerMobile)?.HonorActive == true)
             {
                 return false;
             }
@@ -1460,12 +1439,8 @@ namespace Server.Mobiles
 
             if (SubdueBeforeTame && !Controlled && oldHits > HitsMax / 10 && Hits <= HitsMax / 10)
             {
-                PublicOverheadMessage(
-                    MessageType.Regular,
-                    0x3B2,
-                    false,
-                    "* The creature has been beaten into subjugation! *"
-                );
+                // * The creature has been beaten into subjugation! *
+                PublicOverheadMessage(MessageType.Regular, 0x3B2, 1080057);
             }
         }
 
@@ -1572,7 +1547,7 @@ namespace Server.Mobiles
 
             Confidence.StopRegenerating(this);
 
-            WeightOverloading.FatigueOnDamage(this, amount);
+            StaminaSystem.FatigueOnDamage(this, amount);
 
             var speechType = SpeechType;
 
@@ -1794,7 +1769,7 @@ namespace Server.Mobiles
                             }
                     }
 
-                    from.SendMessage("You cut away some scales, but they remain on the corpse.");
+                    from.SendLocalizedMessage(1079284); // You cut away some scales, but they remain on the corpse.
                 }
 
                 corpse.Carved = true;
@@ -2086,23 +2061,9 @@ namespace Server.Mobiles
                 OwnerAbandonTime = reader.ReadDateTime();
             }
 
-            if (version >= 11)
-            {
-                m_HasGeneratedLoot = reader.ReadBool();
-            }
-            else
-            {
-                m_HasGeneratedLoot = true;
-            }
+            m_HasGeneratedLoot = version < 11 || reader.ReadBool();
 
-            if (version >= 12)
-            {
-                m_Paragon = reader.ReadBool();
-            }
-            else
-            {
-                m_Paragon = false;
-            }
+            m_Paragon = version >= 12 && reader.ReadBool();
 
             if (version >= 13 && reader.ReadBool())
             {
@@ -2277,52 +2238,25 @@ namespace Server.Mobiles
 
         public void RemoveFollowers()
         {
-            if (m_ControlMaster != null)
+            var master = m_ControlMaster ?? m_SummonMaster;
+            if (master != null)
             {
-                m_ControlMaster.Followers -= ControlSlots;
-                if (m_ControlMaster is PlayerMobile mobile)
+                master.Followers -= Math.Min(ControlSlots, master.Followers);
+                if (master is PlayerMobile pm)
                 {
-                    mobile.AllFollowers.Remove(this);
-                    if (mobile.AutoStabled.Contains(this))
-                    {
-                        mobile.AutoStabled.Remove(this);
-                    }
+                    pm.RemoveFollower(this);
+                    pm.AutoStabled?.Remove(this);
                 }
-            }
-            else if (m_SummonMaster != null)
-            {
-                m_SummonMaster.Followers -= ControlSlots;
-                (m_SummonMaster as PlayerMobile)?.AllFollowers.Remove(this);
-            }
-
-            if (m_ControlMaster?.Followers < 0)
-            {
-                m_ControlMaster.Followers = 0;
-            }
-
-            if (m_SummonMaster?.Followers < 0)
-            {
-                m_SummonMaster.Followers = 0;
             }
         }
 
         public void AddFollowers()
         {
-            if (m_ControlMaster != null)
+            var master = m_ControlMaster ?? m_SummonMaster;
+            if (master != null)
             {
-                m_ControlMaster.Followers += ControlSlots;
-                if (m_ControlMaster is PlayerMobile mobile)
-                {
-                    mobile.AllFollowers.Add(this);
-                }
-            }
-            else if (m_SummonMaster != null)
-            {
-                m_SummonMaster.Followers += ControlSlots;
-                if (m_SummonMaster is PlayerMobile mobile)
-                {
-                    mobile.AllFollowers.Add(this);
-                }
+                master.Followers += ControlSlots;
+                (master as PlayerMobile)?.AddFollower(this);
             }
         }
 
@@ -2410,6 +2344,10 @@ namespace Server.Mobiles
             {
                 MLQuestSystem.HandleDeletion(this);
             }
+
+            UnsummonTimer.StopTimer(this);
+
+            StaminaSystem.RemoveEntry(this as IHasSteps);
 
             base.OnAfterDelete();
         }
@@ -3459,6 +3397,7 @@ namespace Server.Mobiles
 
             SummonMaster = null;
             ReceivedHonorContext?.Cancel();
+
             base.OnDelete();
             m?.InvalidateProperties();
         }
@@ -3556,11 +3495,21 @@ namespace Server.Mobiles
         }
 
         public static bool Summon(BaseCreature creature, Mobile caster, Point3D p, int sound, TimeSpan duration) =>
-            Summon(creature, true, caster, p, sound, duration);
+            Summon(creature, true, caster, p, sound, duration, null);
+
+        public static bool Summon(
+            BaseCreature creature, Mobile caster, Point3D p, int sound, TimeSpan duration,
+            Action onUnsummon
+        ) => Summon(creature, true, caster, p, sound, duration, onUnsummon);
 
         public static bool Summon(
             BaseCreature creature, bool controlled, Mobile caster, Point3D p, int sound,
             TimeSpan duration
+        ) => Summon(creature, controlled, caster, p, sound, duration, null);
+
+        public static bool Summon(
+            BaseCreature creature, bool controlled, Mobile caster, Point3D p, int sound,
+            TimeSpan duration, Action onUnsummon
         )
         {
             if (caster.Followers + creature.ControlSlots > caster.FollowersMax)
@@ -3597,7 +3546,7 @@ namespace Server.Mobiles
                 }
             }
 
-            new UnsummonTimer(creature, duration).Start();
+            new UnsummonTimer(creature, duration, onUnsummon).Start();
             creature.SummonEnd = Core.Now + duration;
 
             creature.MoveToWorld(p, caster.Map);
@@ -3699,8 +3648,6 @@ namespace Server.Mobiles
                     break;
                 }
             }
-
-            eable.Free();
 
             if (toRummage == null)
             {
@@ -3838,11 +3785,10 @@ namespace Server.Mobiles
 
         public static void TeleportPets(Mobile master, Point3D loc, Map map, bool onlyBonded = false)
         {
-            if (master is PlayerMobile pm)
+            if (master is PlayerMobile { AllFollowers: not null } pm)
             {
-                for (var i = 0; i < pm.AllFollowers.Count; i++)
+                foreach (var m in pm.AllFollowers)
                 {
-                    var m = pm.AllFollowers[i];
                     if (m.Map == master.Map && master.InRange(m, 3) && m is BaseCreature
                             { Controlled: true, ControlOrder: OrderType.Guard or OrderType.Follow or OrderType.Come } pet &&
                         pet.ControlMaster == master && (!onlyBonded || pet.IsBonded))
@@ -3865,7 +3811,6 @@ namespace Server.Mobiles
                     queue.Enqueue(pet);
                 }
             }
-            eable.Free();
 
             while (queue.Count > 0)
             {
@@ -3894,7 +3839,7 @@ namespace Server.Mobiles
 
             IsDeadPet = false;
 
-            Span<byte> buffer = stackalloc byte[OutgoingMobilePackets.BondedStatusPacketLength];
+            Span<byte> buffer = stackalloc byte[OutgoingMobilePackets.BondedStatusPacketLength].InitializePacket();
             OutgoingMobilePackets.CreateBondedStatus(buffer, Serial, false);
             Effects.SendPacket(Location, Map, buffer);
 
@@ -4209,15 +4154,13 @@ namespace Server.Mobiles
         {
             if (!IsDeadPet && Controlled && (ControlMaster == from || IsPetFriend(from)))
             {
-                var f = dropped;
-
-                if (CheckFoodPreference(f))
+                if (CheckFoodPreference(dropped))
                 {
-                    var amount = f.Amount;
+                    var amount = dropped.Amount;
 
                     if (amount > 0)
                     {
-                        int stamGain = f switch
+                        int stamGain = dropped switch
                         {
                             Gold => amount - 50,
                             _    => amount * 15 - 50
@@ -4226,6 +4169,8 @@ namespace Server.Mobiles
                         if (stamGain > 0)
                         {
                             Stam += stamGain;
+                            // 64 food = 3,640 steps
+                            StaminaSystem.RegenSteps(this as IHasSteps, stamGain * 4);
                         }
 
                         if (Core.SE)
@@ -5412,7 +5357,6 @@ namespace Server.Mobiles
                     queue.Enqueue(m);
                 }
             }
-            eable.Free();
 
             while (queue.Count > 0)
             {

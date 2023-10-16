@@ -1,4 +1,3 @@
-using System;
 using Server.Items;
 using Server.Network;
 using Xunit;
@@ -23,8 +22,8 @@ namespace Server.Tests.Network
             var ns = PacketTestUtilities.CreateTestNetState();
             ns.SendDisplaySecureTrade(m, firstCont, secondCont, name);
 
-            var result = ns.SendPipe.Reader.TryRead();
-            AssertThat.Equal(result.Buffer[0].AsSpan(0), expected);
+            var result = ns.SendPipe.Reader.AvailableToRead();
+            AssertThat.Equal(result, expected);
         }
 
         [Fact]
@@ -37,8 +36,8 @@ namespace Server.Tests.Network
             var ns = PacketTestUtilities.CreateTestNetState();
             ns.SendCloseSecureTrade(cont);
 
-            var result = ns.SendPipe.Reader.TryRead();
-            AssertThat.Equal(result.Buffer[0].AsSpan(0), expected);
+            var result = ns.SendPipe.Reader.AvailableToRead();
+            AssertThat.Equal(result, expected);
         }
 
         [Theory, InlineData(true, false), InlineData(false, true)]
@@ -55,8 +54,8 @@ namespace Server.Tests.Network
             var ns = PacketTestUtilities.CreateTestNetState();
             ns.SendUpdateSecureTrade(cont, first, second);
 
-            var result = ns.SendPipe.Reader.TryRead();
-            AssertThat.Equal(result.Buffer[0].AsSpan(0), expected);
+            var result = ns.SendPipe.Reader.AvailableToRead();
+            AssertThat.Equal(result, expected);
         }
 
         [Theory]
@@ -70,8 +69,8 @@ namespace Server.Tests.Network
             var ns = PacketTestUtilities.CreateTestNetState();
             ns.SendUpdateSecureTrade(cont, flag, gold, plat);
 
-            var result = ns.SendPipe.Reader.TryRead();
-            AssertThat.Equal(result.Buffer[0].AsSpan(0), expected);
+            var result = ns.SendPipe.Reader.AvailableToRead();
+            AssertThat.Equal(result, expected);
         }
 
         [Fact]
@@ -88,8 +87,8 @@ namespace Server.Tests.Network
             var ns = PacketTestUtilities.CreateTestNetState();
             ns.SendSecureTradeEquip(itemInCont, m);
 
-            var result = ns.SendPipe.Reader.TryRead();
-            AssertThat.Equal(result.Buffer[0].AsSpan(0), expected);
+            var result = ns.SendPipe.Reader.AvailableToRead();
+            AssertThat.Equal(result, expected);
         }
 
         [Fact]
@@ -108,8 +107,8 @@ namespace Server.Tests.Network
 
             ns.SendSecureTradeEquip(itemInCont, m);
 
-            var result = ns.SendPipe.Reader.TryRead();
-            AssertThat.Equal(result.Buffer[0].AsSpan(0), expected);
+            var result = ns.SendPipe.Reader.AvailableToRead();
+            AssertThat.Equal(result, expected);
         }
     }
 }

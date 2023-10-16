@@ -1,4 +1,3 @@
-using System;
 using Server.Items;
 using Server.Tests;
 using Server.Tests.Network;
@@ -20,8 +19,8 @@ namespace UOContent.Tests
             var ns = PacketTestUtilities.CreateTestNetState();
             ns.SendToggleSpecialAbility(abilityId, active);
 
-            var result = ns.SendPipe.Reader.TryRead();
-            AssertThat.Equal(result.Buffer[0].AsSpan(0), expected);
+        var result = ns.SendPipe.Reader.AvailableToRead();
+        AssertThat.Equal(result, expected);
         }
 
         [Fact]
@@ -32,8 +31,8 @@ namespace UOContent.Tests
             var ns = PacketTestUtilities.CreateTestNetState();
             ns.SendClearWeaponAbility();
 
-            var result = ns.SendPipe.Reader.TryRead();
-            AssertThat.Equal(result.Buffer[0].AsSpan(0), expected);
+        var result = ns.SendPipe.Reader.AvailableToRead();
+        AssertThat.Equal(result, expected);
         }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using ModernUO.Serialization;
 using Server.Mobiles;
 using Server.Network;
@@ -54,7 +55,8 @@ namespace Server.Items
 
                     if (canSwing)
                     {
-                        canSwing = attacker.Spell is not Spell sp || !sp.IsCasting || !sp.BlocksMovement;
+                        // On OSI you can swing + hold a cast at the same time
+                        canSwing = attacker.Spell is not Spell { IsCasting: true, BlocksMovement: true };
                     }
                 }
 
@@ -93,10 +95,11 @@ namespace Server.Items
 
         public override void OnHit(Mobile attacker, Mobile defender, double damageBonus = 1)
         {
-            if (attacker.Player && !defender.Player && (defender.Body.IsAnimal || defender.Body.IsMonster) &&
+            var ammo = Ammo;
+            if (ammo != null && attacker.Player && !defender.Player && (defender.Body.IsAnimal || defender.Body.IsMonster) &&
                 Utility.RandomDouble() < 0.4)
             {
-                defender.AddToBackpack(Ammo);
+                defender.AddToBackpack(ammo);
             }
 
             if (Core.ML && _velocity > 0)
@@ -132,8 +135,12 @@ namespace Server.Items
                     {
                         var ammo = AmmoType;
 
-                        pm.RecoverableAmmo.TryGetValue(ammo, out var result);
-                        pm.RecoverableAmmo[ammo] = result + 1;
+                        if (ammo != null)
+                        {
+                            pm.RecoverableAmmo ??= new Dictionary<Type, int>();
+                            pm.RecoverableAmmo.TryGetValue(ammo, out var result);
+                            pm.RecoverableAmmo[ammo] = result + 1;
+                        }
 
                         if (!pm.Warmode)
                         {
@@ -153,7 +160,7 @@ namespace Server.Items
                 }
                 else
                 {
-                    Ammo.MoveToWorld(
+                    Ammo?.MoveToWorld(
                         new Point3D(
                             defender.X + Utility.RandomMinMax(-1, 1),
                             defender.Y + Utility.RandomMinMax(-1, 1),

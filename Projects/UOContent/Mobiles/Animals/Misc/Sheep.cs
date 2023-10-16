@@ -1,7 +1,6 @@
 using ModernUO.Serialization;
 using System;
 using Server.Items;
-using Server.Network;
 using System.Runtime.CompilerServices;
 
 namespace Server.Mobiles
@@ -44,8 +43,9 @@ namespace Server.Mobiles
 
         public override string CorpseName => "a sheep corpse";
 
-        [CommandProperty(AccessLevel.GameMaster)]
+        [DeltaDateTime]
         [SerializableProperty(0)]
+        [CommandProperty(AccessLevel.GameMaster)]
         public DateTime NextWoolTime
         {
             get => _nextWoolTime;

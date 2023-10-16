@@ -76,7 +76,7 @@ public static class AssistantHandler
         _handshakes[m] = Timer.DelayCall(TimeSpan.FromSeconds(30), OnTimeout, m);
     }
 
-    public static void AssistVersion(NetState state, CircularBufferReader reader, int packetLength)
+    public static void AssistVersion(NetState state, SpanReader reader, int packetLength)
     {
         // We are not supporting the old UOAssist protocol
         // var assistVersion = reader.ReadInt32();
@@ -84,10 +84,10 @@ public static class AssistantHandler
 
         // Instead we are supporting razor community edition.
         var assistVersion = reader.ReadAscii();
-        state.Assistant = assistVersion.Contains(' ') ? assistVersion : $"RazorCE {assistVersion}";
+        state.Assistant = assistVersion.ContainsOrdinal(' ') ? assistVersion : $"RazorCE {assistVersion}";
     }
 
-    private static void HandshakeResponse(NetState state, CircularBufferReader reader, int packetLength)
+    private static void HandshakeResponse(NetState state, SpanReader reader, int packetLength)
     {
         Mobile m = state.Mobile;
 

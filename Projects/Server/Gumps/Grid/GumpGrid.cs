@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright 2019-2022 - ModernUO Development Team                       *
+ * Copyright 2019-2023 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: GumpGrid.cs                                                     *
  *                                                                       *
@@ -81,7 +81,7 @@ public class GumpGrid : Gump
             }
 
             //percent
-            var percent = sizes[i].Replace("*", "");
+            var percent = sizes[i].RemoveOrdinal("*");
             var size = sizes[i] != percent ? len / 100 * int.Parse(percent) : int.Parse(percent);
 
             list.Add(new Swap { Index = i, Size = size });

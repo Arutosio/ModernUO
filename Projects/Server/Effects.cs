@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright 2019-2022 - ModernUO Development Team                       *
+ * Copyright 2019-2023 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: Effects.cs                                                      *
  *                                                                       *
@@ -59,7 +59,7 @@ public static class Effects
 
     public static bool SendParticlesTo(NetState state) =>
         ParticleSupportType == ParticleSupportType.Full ||
-        ParticleSupportType == ParticleSupportType.Detect && state.IsUOTDClient;
+        ParticleSupportType == ParticleSupportType.Detect && (state.IsUOTDClient || state.IsEnhancedClient);
 
     public static void PlaySound(IEntity e, int soundID) => PlaySound(e.Location, e.Map, soundID);
 
@@ -82,8 +82,6 @@ public static class Effects
                 OutgoingEffectPackets.CreateSoundEffect(buffer, soundID, p);
                 state.Send(buffer);
             }
-
-            eable.Free();
         }
     }
 
@@ -127,8 +125,6 @@ public static class Effects
                 }
             }
         }
-
-        eable.Free();
     }
 
     public static void SendLocationEffect(
@@ -196,8 +192,6 @@ public static class Effects
                 state.Send(regular);
             }
         }
-
-        eable.Free();
     }
 
     public static void SendTargetEffect(IEntity target, int itemID, int speed, int duration, int hue = 0, int renderMode = 0)
@@ -258,8 +252,6 @@ public static class Effects
                 state.Send(regular);
             }
         }
-
-        eable.Free();
     }
 
     public static void SendMovingEffect(
@@ -379,7 +371,7 @@ public static class Effects
         int speed, int duration, bool fixedDirection = false, bool explodes = false, int hue = 0, int renderMode = 0
     )
     {
-        Span<byte> effect = stackalloc byte[OutgoingEffectPackets.HuedEffectLength];
+        Span<byte> effect = stackalloc byte[OutgoingEffectPackets.HuedEffectLength].InitializePacket();
         OutgoingEffectPackets.CreateMovingHuedEffect(
             effect,
             from, to, itemID, fromLocation, toLocation, speed, duration, fixedDirection,
@@ -478,8 +470,6 @@ public static class Effects
                 state.Send(regular);
             }
         }
-
-        eable.Free();
     }
 
     public static void SendPacket(Point3D origin, Map map, Span<byte> effectBuffer)
@@ -496,7 +486,5 @@ public static class Effects
             state.Mobile.ProcessDelta();
             state.Send(effectBuffer);
         }
-
-        eable.Free();
     }
 }

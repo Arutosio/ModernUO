@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright 2019-2022 - ModernUO Development Team                       *
+ * Copyright 2019-2023 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: FreeshardProtocol.cs                                            *
  *                                                                       *
@@ -12,6 +12,8 @@
  * You should have received a copy of the GNU General Public License     *
  * along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  *************************************************************************/
+
+using System.Buffers;
 
 namespace Server.Network
 {
@@ -25,7 +27,7 @@ namespace Server.Network
             _handlers = ProtocolExtensions<FreeshardProtocolInfo>.Register(new FreeshardProtocolInfo());
         }
 
-        public static unsafe void Register(int cmd, bool ingame, delegate*<NetState, CircularBufferReader, int, void> onReceive) =>
+        public static unsafe void Register(int cmd, bool ingame, delegate*<NetState, SpanReader, int, void> onReceive) =>
             _handlers[cmd] = new PacketHandler(cmd, 0, ingame, onReceive);
 
         private struct FreeshardProtocolInfo : IProtocolExtensionsInfo

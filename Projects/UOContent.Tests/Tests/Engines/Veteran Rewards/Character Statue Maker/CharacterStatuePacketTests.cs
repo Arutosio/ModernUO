@@ -1,4 +1,3 @@
-using System;
 using Server;
 using Server.Engines.VeteranRewards;
 using Server.Network;
@@ -19,8 +18,8 @@ namespace UOContent.Tests
             var ns = PacketTestUtilities.CreateTestNetState();
             ns.SendStatueAnimation((Serial)s, status, anim, frame);
 
-            var result = ns.SendPipe.Reader.TryRead();
-            AssertThat.Equal(result.Buffer[0].AsSpan(0), expected);
+        var result = ns.SendPipe.Reader.AvailableToRead();
+        AssertThat.Equal(result, expected);
         }
     }
 }

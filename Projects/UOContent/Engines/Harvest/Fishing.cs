@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Server.Engines.Quests;
 using Server.Engines.Quests.Collector;
 using Server.Items;
@@ -10,9 +9,9 @@ namespace Server.Engines.Harvest
 {
     public class Fishing : HarvestSystem
     {
-        private static Fishing m_System;
+        private static Fishing _system;
 
-        private static readonly MutateEntry[] m_MutateTable =
+        private static readonly MutateEntry[] _mutateTable =
         {
             new(80.0, 80.0, 4080.0, true, typeof(SpecialFishingNet)),
             new(80.0, 80.0, 4080.0, true, typeof(BigFish)),
@@ -32,14 +31,39 @@ namespace Server.Engines.Harvest
             new(0.0, 200.0, -200.0, false, new Type[] { null })
         };
 
-        private static readonly int[] m_WaterTiles =
+        private static readonly int[] _waterLandTiles =
         {
             0x00A8, 0x00AB,
-            0x0136, 0x0137,
-            0x5797, 0x579C,
-            0x746E, 0x7485,
-            0x7490, 0x74AB,
-            0x74B5, 0x75D5
+            0x0136, 0x0137
+        };
+
+        private static readonly int[] waterStaticTiles =
+        {
+            0x1797, 0x179C,
+            0x346E, 0x3485,
+            0x3490, 0x34AB,
+            0x34B5, 0x35D5
+        };
+
+        private static readonly int[] bodyParts = {
+            0x1CDD, 0x1CE5, // arm
+            0x1CE0, 0x1CE8, // torso
+            0x1CE1, 0x1CE9, // head
+            0x1CE2, 0x1CEC  // leg
+        };
+
+        private static readonly int[] boneParts = {
+            0x1AE0, 0x1AE1, 0x1AE2, 0x1AE3, 0x1AE4,                         // skulls
+            0x1B09, 0x1B0A, 0x1B0B, 0x1B0C, 0x1B0D, 0x1B0E, 0x1B0F, 0x1B10, // bone piles
+            0x1B15, 0x1B16                                                  // pelvis bones
+        };
+
+        private static readonly int[] miscItems = {
+            0x1EB5,                        // unfinished barrel
+            0xA2A,                         // stool
+            0xC1F,                         // broken clock
+            0x1047, 0x1048,                // globe
+            0x1EB1, 0x1EB2, 0x1EB3, 0x1EB4 // barrel staves
         };
 
         private Fishing()
@@ -53,7 +77,8 @@ namespace Server.Engines.Harvest
                 MinRespawn = TimeSpan.FromMinutes(10.0),
                 MaxRespawn = TimeSpan.FromMinutes(20.0),
                 Skill = SkillName.Fishing,
-                Tiles = m_WaterTiles,
+                LandTiles = _waterLandTiles,
+                StaticTiles = waterStaticTiles,
                 RangedTiles = true,
                 MaxRange = 4,
                 ConsumedPerHarvest = 1,
@@ -96,7 +121,7 @@ namespace Server.Engines.Harvest
             Definitions = new[] { fish };
         }
 
-        public static Fishing System => m_System ?? (m_System = new Fishing());
+        public static Fishing System => _system ??= new Fishing();
 
         public override void OnConcurrentHarvest(Mobile from, Item tool, HarvestDefinition def, object toHarvest)
         {
@@ -145,9 +170,9 @@ namespace Server.Engines.Harvest
             var skillBase = from.Skills.Fishing.Base;
             var skillValue = from.Skills.Fishing.Value;
 
-            for (var i = 0; i < m_MutateTable.Length; ++i)
+            for (var i = 0; i < _mutateTable.Length; ++i)
             {
-                var entry = m_MutateTable[i];
+                var entry = _mutateTable[i];
 
                 if (!deepWater && entry.m_DeepWater)
                 {
@@ -174,12 +199,8 @@ namespace Server.Engines.Harvest
 
             if (pack != null)
             {
-                List<SOS> messages = pack.FindItemsByType<SOS>();
-
-                for (int i = 0; i < messages.Count; ++i)
+                foreach (var sos in pack.FindItemsByType<SOS>())
                 {
-                    SOS sos = messages[i];
-
                     if ((from.Map == Map.Felucca || from.Map == Map.Trammel) && from.InRange(sos.TargetLocation, 60))
                     {
                         return true;
@@ -217,12 +238,9 @@ namespace Server.Engines.Harvest
 
             if (pack != null)
             {
-                var messages = pack.FindItemsByType<SOS>();
-
-                for (var i = 0; i < messages.Count; ++i)
+                // We don't have to queue since we are returning on the first SOS.
+                foreach (var sos in pack.FindItemsByType<SOS>())
                 {
-                    var sos = messages[i];
-
                     if ((from.Map == Map.Felucca || from.Map == Map.Trammel) && from.InRange(sos.TargetLocation, 60))
                     {
                         Item preLoot = null;
@@ -231,27 +249,12 @@ namespace Server.Engines.Harvest
                         {
                             case 0: // Body parts
                                 {
-                                    int[] list =
-                                    {
-                                        0x1CDD, 0x1CE5, // arm
-                                        0x1CE0, 0x1CE8, // torso
-                                        0x1CE1, 0x1CE9, // head
-                                        0x1CE2, 0x1CEC  // leg
-                                    };
-
-                                    preLoot = new ShipwreckedItem(list.RandomElement());
+                                    preLoot = new ShipwreckedItem(bodyParts.RandomElement());
                                     break;
                                 }
                             case 1: // Bone parts
                                 {
-                                    int[] list =
-                                    {
-                                        0x1AE0, 0x1AE1, 0x1AE2, 0x1AE3, 0x1AE4,                         // skulls
-                                        0x1B09, 0x1B0A, 0x1B0B, 0x1B0C, 0x1B0D, 0x1B0E, 0x1B0F, 0x1B10, // bone piles
-                                        0x1B15, 0x1B16                                                  // pelvis bones
-                                    };
-
-                                    preLoot = new ShipwreckedItem(list.RandomElement());
+                                    preLoot = new ShipwreckedItem(boneParts.RandomElement());
                                     break;
                                 }
                             case 2: // Paintings and portraits
@@ -271,36 +274,16 @@ namespace Server.Engines.Harvest
                                 }
                             case 5: // Hats
                                 {
-                                    if (Utility.RandomBool())
-                                    {
-                                        preLoot = new SkullCap();
-                                    }
-                                    else
-                                    {
-                                        preLoot = new TricorneHat();
-                                    }
-
+                                    preLoot = Utility.RandomBool() ? new SkullCap() : new TricorneHat();
                                     break;
                                 }
                             case 6: // Misc
                                 {
-                                    int[] list =
-                                    {
-                                        0x1EB5,                        // unfinished barrel
-                                        0xA2A,                         // stool
-                                        0xC1F,                         // broken clock
-                                        0x1047, 0x1048,                // globe
-                                        0x1EB1, 0x1EB2, 0x1EB3, 0x1EB4 // barrel staves
-                                    };
+                                    var rand = Utility.Random(miscItems.Length + 1);
 
-                                    if (Utility.Random(list.Length + 1) == 0)
-                                    {
-                                        preLoot = new Candelabra();
-                                    }
-                                    else
-                                    {
-                                        preLoot = new ShipwreckedItem(list.RandomElement());
-                                    }
+                                    preLoot = rand == miscItems.Length
+                                        ? new Candelabra()
+                                        : new ShipwreckedItem(miscItems[rand]);
 
                                     break;
                                 }
@@ -312,16 +295,7 @@ namespace Server.Engines.Harvest
                             return preLoot;
                         }
 
-                        LockableContainer chest;
-
-                        if (Utility.RandomBool())
-                        {
-                            chest = new MetalGoldenChest();
-                        }
-                        else
-                        {
-                            chest = new WoodenChest();
-                        }
+                        LockableContainer chest = Utility.RandomBool() ? new MetalGoldenChest() : new WoodenChest();
 
                         if (sos.IsAncient)
                         {
@@ -479,7 +453,7 @@ namespace Server.Engines.Harvest
         {
             base.OnHarvestStarted(from, tool, def, toHarvest);
 
-            if (GetHarvestDetails(from, tool, toHarvest, out _, out var map, out var loc))
+            if (GetHarvestDetails(from, tool, toHarvest, out _, out var map, out var loc, out _))
             {
                 Timer.StartTimer(
                     TimeSpan.FromSeconds(1.5),

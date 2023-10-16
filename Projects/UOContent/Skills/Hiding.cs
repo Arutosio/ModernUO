@@ -1,6 +1,5 @@
 using System;
 using Server.Multis;
-using Server.Network;
 using Server.Spells.Sixth;
 using Server.Targeting;
 
@@ -70,8 +69,6 @@ namespace Server.SkillHandlers
                             break;
                         }
                     }
-
-                    eable.Free();
                 }
 
                 ok = !badCombat && m.CheckSkill(SkillName.Hiding, 0.0 - bonus, 100.0 - bonus);

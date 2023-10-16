@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright 2019-2022 - ModernUO Development Team                       *
+ * Copyright 2019-2023 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: MapItemPackets.cs                                               *
  *                                                                       *
@@ -25,7 +25,7 @@ namespace Server.Network
             IncomingPackets.Register(0x56, 11, true, &OnMapCommand);
         }
 
-        private static void OnMapCommand(NetState state, CircularBufferReader reader, int packetLength)
+        private static void OnMapCommand(NetState state, SpanReader reader, int packetLength)
         {
             var from = state.Mobile;
 

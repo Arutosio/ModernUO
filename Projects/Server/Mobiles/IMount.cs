@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright 2019-2022 - ModernUO Development Team                       *
+ * Copyright 2019-2023 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: IMount.cs                                                       *
  *                                                                       *
@@ -15,7 +15,7 @@
 
 namespace Server.Mobiles;
 
-public interface IMount
+public interface IMount : IHasSteps
 {
     Mobile Rider { get; set; }
     void OnRiderDamaged(int amount, Mobile from, bool willKill);

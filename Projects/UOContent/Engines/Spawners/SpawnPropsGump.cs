@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright 2019-2022 - ModernUO Development Team                       *
+ * Copyright 2019-2023 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: GlobalPropsGump.cs                                              *
  *                                                                       *
@@ -14,11 +14,11 @@
  *************************************************************************/
 
 using System.Collections.Generic;
-using Server.Buffers;
 using Server.Commands.Generic;
 using Server.Engines.Spawners;
 using Server.Mobiles;
 using Server.Network;
+using Server.Text;
 using CPA = Server.CommandPropertyAttribute;
 
 namespace Server.Gumps

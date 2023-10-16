@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using ModernUO.Serialization;
 using Server.Collections;
-using Server.Network;
 using Server.Spells;
 using Server.Spells.Fourth;
 using Server.Targeting;
@@ -133,7 +132,6 @@ public partial class Firebomb : Item
                                 targets.Enqueue(m);
                             }
                         }
-                        eable.Free();
 
                         while (targets.Count > 0)
                         {

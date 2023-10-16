@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright 2019-2022 - ModernUO Development Team                       *
+ * Copyright 2019-2023 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: StringHelpers.cs                                                *
  *                                                                       *
@@ -277,6 +277,7 @@ public static class StringHelpers
             _ => buffer.IndexOf((byte)0)
         };
 
+    // TODO: If returns -1, do not multiply by the byte length
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int IndexOfTerminator(this ReadOnlySpan<byte> buffer, int sizeT) =>
         sizeT switch

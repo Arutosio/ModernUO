@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Server.Collections;
 using Server.ContextMenus;
 using Server.Items;
 using Server.Logging;
@@ -175,7 +176,7 @@ public enum ExpandFlag
     Spawner = 0x100
 }
 
-public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEntity
+public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEntity, IValueLinkListNode<Item>
 {
     private static readonly ILogger logger = LogFactory.GetLogger(typeof(Item));
 
@@ -252,6 +253,11 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
             }
         }
     }
+
+    // Sectors
+    public Item Next { get; set; }
+    public Item Previous { get; set; }
+    public bool OnLinkList { get; set; }
 
     /// <summary>
     ///     The <see cref="Mobile" /> who is currently <see cref="Mobile.Holding">holding</see> this item.
@@ -340,8 +346,6 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
                             state.Send(removeEntity);
                         }
                     }
-
-                    eable.Free();
                 }
 
                 Delta(ItemDelta.Update);
@@ -760,12 +764,9 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
     [CommandProperty(AccessLevel.GameMaster, readOnly: true)]
     public DateTime Created { get; set; } = Core.Now;
 
-    [CommandProperty(AccessLevel.GameMaster)]
-    DateTime ISerializable.LastSerialized { get; set; } = Core.Now;
+    public long SavePosition { get; set; } = -1;
 
-    long ISerializable.SavePosition { get; set; } = -1;
-
-    BufferWriter ISerializable.SaveBuffer { get; set; }
+    public BufferWriter SaveBuffer { get; set; }
 
     [CommandProperty(AccessLevel.Counselor)]
     public Serial Serial { get; }
@@ -1041,12 +1042,6 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
         }
     }
 
-    public virtual bool ShouldExecuteAfterSerialize => false;
-
-    public virtual void AfterSerialize()
-    {
-    }
-
     public void MoveToWorld(WorldLocation worldLocation)
     {
         MoveToWorld(worldLocation.Location, worldLocation.Map);
@@ -1151,8 +1146,6 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
                         }
                     }
                 }
-
-                eable.Free();
             }
 
             RemDelta(ItemDelta.Update);
@@ -1182,8 +1175,6 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
                         state.Send(removeEntity);
                     }
                 }
-
-                eable.Free();
             }
 
             var oldInternalLocation = m_Location;
@@ -1202,8 +1193,6 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
                     SendInfoTo(state);
                 }
             }
-
-            eable.Free();
 
             m_Map.OnMove(oldInternalLocation, this);
 
@@ -1406,8 +1395,6 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
                 SendOPLPacketTo(state);
             }
         }
-
-        eable.Free();
     }
 
     public virtual void Delete()
@@ -1519,8 +1506,6 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
                                 state.Send(removeEntity);
                             }
                         }
-
-                        eable.Free();
                     }
 
                     var oldLoc = m_Location;
@@ -1541,8 +1526,6 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
                             SendInfoTo(state);
                         }
                     }
-
-                    eable.Free();
 
                     RemDelta(ItemDelta.Update);
                 }
@@ -2256,8 +2239,7 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
 
     public bool AtPoint(int x, int y) => m_Location.m_X == x && m_Location.m_Y == y;
 
-    public virtual bool CanDecay() =>
-        Decays && Parent == null && Map != Map.Internal;
+    public virtual bool CanDecay() => Decays && Parent == null && Map != Map.Internal;
 
 
     public virtual bool OnDecay() =>
@@ -2487,7 +2469,7 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
         var map = m_Map;
 
         return map == null
-            ? Map.NullEnumerable<IEntity>.Instance
+            ? PooledEnumeration.NullEnumerable<IEntity>.Instance
             : map.GetObjectsInRange(m_Parent == null ? m_Location : GetWorldLocation(), range);
     }
 
@@ -2496,7 +2478,7 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
         var map = m_Map;
 
         return map?.GetItemsInRange(m_Parent == null ? m_Location : GetWorldLocation(), range)
-               ?? Map.NullEnumerable<Item>.Instance;
+               ?? PooledEnumeration.NullEnumerable<Item>.Instance;
     }
 
     public IPooledEnumerable<Mobile> GetMobilesInRange(int range)
@@ -2504,7 +2486,7 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
         var map = m_Map;
 
         return map?.GetMobilesInRange(m_Parent == null ? m_Location : GetWorldLocation(), range)
-               ?? Map.NullEnumerable<Mobile>.Instance;
+               ?? PooledEnumeration.NullEnumerable<Mobile>.Instance;
     }
 
     public IPooledEnumerable<NetState> GetClientsInRange(int range)
@@ -2512,7 +2494,7 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
         var map = m_Map;
 
         return map.GetClientsInRange(m_Parent == null ? m_Location : GetWorldLocation(), range)
-               ?? Map.NullEnumerable<NetState>.Instance;
+               ?? PooledEnumeration.NullEnumerable<NetState>.Instance;
     }
 
     public bool GetTempFlag(int flag) => ((LookupCompactInfo()?.m_TempFlags ?? 0) & flag) != 0;
@@ -3306,8 +3288,6 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
                 state.Send(buffer);
             }
         }
-
-        eable.Free();
     }
 
     public void PublicOverheadMessage(MessageType type, int hue, int number, string args = "")
@@ -3340,8 +3320,6 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
                 state.Send(buffer);
             }
         }
-
-        eable.Free();
     }
 
     public virtual void OnAfterDelete()
@@ -3593,8 +3571,6 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
             items.Add(item);
         }
 
-        eable.Free();
-
         if (z == int.MinValue)
         {
             return false;
@@ -3796,8 +3772,6 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
                 state.Send(removeEntity);
             }
         }
-
-        eable.Free();
     }
 
     public virtual int GetDropSound() => -1;
@@ -4193,19 +4167,15 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
         }
     }
 
-    public virtual void Consume()
+    public virtual void Consume(int amount = 1)
     {
-        Consume(1);
-    }
-
-    public virtual void Consume(int amount)
-    {
-        Amount -= amount;
-
-        if (Amount <= 0)
+        if (Amount <= amount)
         {
             Delete();
+            return;
         }
+
+        Amount -= amount;
     }
 
     public virtual void ReplaceWith(Item newItem)

@@ -13,9 +13,6 @@ namespace Server.Mobiles
             Body = Core.UOR ? Utility.Random(125, 2) : 0x190;
             Hue = Core.UOR ? 0 : Race.Human.RandomSkinHue();
 
-            EquipItem(new Robe(Utility.RandomMetalHue()));
-            EquipItem(new WizardsHat(Utility.RandomMetalHue()));
-
             SetStr(81, 105);
             SetDex(191, 215);
             SetInt(126, 150);
@@ -44,13 +41,17 @@ namespace Server.Mobiles
 
             VirtualArmor = 16;
             PackReg(23);
+
+            PackItem(new Robe(Utility.RandomMetalHue()));
+            PackItem(new WizardsHat(Utility.RandomMetalHue()));
+
             if (Utility.RandomBool())
             {
-                EquipItem(new Shoes());
+                PackItem(new Shoes());
             }
             else
             {
-                EquipItem(new Sandals());
+                PackItem(new Sandals());
             }
         }
 

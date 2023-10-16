@@ -202,19 +202,22 @@ namespace Server.Engines.Craft
             CraftItems[index].ItemHue = hue;
         }
 
-        public void SetManaReq(int index, int mana)
+        public void SetManaReq(int index, int mana, int cliloc = 0)
         {
             CraftItems[index].Mana = mana;
+            CraftItems[index].NeedManaLabel = TextDefinition.Of(cliloc, "You lack the required mana to make that.");
         }
 
-        public void SetStamReq(int index, int stam)
+        public void SetStamReq(int index, int stam, int cliloc = 0)
         {
             CraftItems[index].Stam = stam;
+            CraftItems[index].NeedStamLabel = TextDefinition.Of(cliloc, "You lack the required stamina to make that.");
         }
 
-        public void SetHitsReq(int index, int hits)
+        public void SetHitsReq(int index, int hits, int cliloc = 0)
         {
             CraftItems[index].Hits = hits;
+            CraftItems[index].NeedHitsLabel = TextDefinition.Of(cliloc, "You lack the required hit points to make that.");
         }
 
         public void SetUseAllRes(int index, bool useAll)
@@ -245,11 +248,6 @@ namespace Server.Engines.Craft
         public void SetNeededExpansion(int index, Expansion expansion)
         {
             CraftItems[index].RequiredExpansion = expansion;
-        }
-
-        public void AddRes(int index, Type type, TextDefinition name, int amount)
-        {
-            AddRes(index, type, name, amount, "");
         }
 
         public void AddRes(int index, Type type, TextDefinition name, int amount, TextDefinition message)

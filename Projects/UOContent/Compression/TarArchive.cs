@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
-using Server.Buffers;
+using Server.Text;
 
 namespace Server.Compression
 {
@@ -96,13 +96,22 @@ namespace Server.Compression
 
             new FileInfo(destinationArchiveFileName).EnsureDirectory();
 
-            using var builder = ValueStringBuilder.Create();
+            var sb = ValueStringBuilder.Create();
             var i = 0;
             foreach (var path in paths)
             {
-                builder.Append($"{(i++ > 0 ? " " : "")}\"{Path.GetRelativePath(relativeTo, path)}\"");
+                var relativePath = Path.GetRelativePath(relativeTo, path);
+                if (i++ > 0)
+                {
+                    sb.Append($" \"{relativePath}\"");
+                }
+                else
+                {
+                    sb.Append($"\"{relativePath}\"");
+                }
             }
-            var pathsToCompress = builder.ToString();
+            var pathsToCompress = sb.ToString();
+            sb.Dispose();
 
             var tarFlags = compressCommand == null ? "-acf" : "-cf";
             var useExternalCompression = compressCommand != null ? $"--use-compress-program \"{compressCommand}\" " : "";

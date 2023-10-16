@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright (C) 2019-2022 - ModernUO Development Team                   *
+ * Copyright 2019-2023 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: GumpCheck.cs                                                    *
  *                                                                       *
@@ -42,7 +42,7 @@ public class GumpCheck : GumpEntry
 
     public int SwitchID { get; set; }
 
-    public override void AppendTo(ref SpanWriter writer, OrderedHashSet<string> strings, scoped ref int entries, scoped ref int switches)
+    public override void AppendTo(ref SpanWriter writer, OrderedHashSet<string> strings, ref int entries, ref int switches)
     {
         var initialState = InitialState ? "1" : "0";
         writer.WriteAscii($"{{ checkbox {X} {Y} {InactiveID} {ActiveID} {initialState} {SwitchID} }}");

@@ -4,7 +4,6 @@ using System.Text;
 using Server.Gumps;
 using Server.Items;
 using Server.Mobiles;
-using Server.Network;
 using Server.Targeting;
 
 namespace Server.Engines.ConPVP
@@ -480,8 +479,6 @@ namespace Server.Engines.ConPVP
                             }
                         }
 
-                        eable.Free();
-
                         if (empty)
                         {
                             HitObject(point, landTop, 0);
@@ -570,8 +567,6 @@ namespace Server.Engines.ConPVP
                     {
                         continue;
                     }
-
-                    area.Free();
                     if (i is BRGoal goal)
                     {
                         var oldLoc = new Point3D(GetWorldLocation());
@@ -591,8 +586,6 @@ namespace Server.Engines.ConPVP
 
                     return;
                 }
-
-                area.Free();
 
                 var clients = Map.GetClientsInBounds(rect);
                 foreach (var ns in clients)
@@ -623,15 +616,11 @@ namespace Server.Engines.ConPVP
                         continue;
                     }
 
-                    clients.Free();
-
                     // TODO: probably need to change this a lot...
                     DoCatch(m);
 
                     return;
                 }
-
-                clients.Free();
 
                 m_PathIdx = pathCheckEnd;
 
@@ -685,8 +674,6 @@ namespace Server.Engines.ConPVP
                         }
                     }
                 }
-
-                eable.Free();
 
                 Z = myZ;
                 m_Flying = false;
@@ -1738,23 +1725,20 @@ namespace Server.Engines.ConPVP
 
             var hadBomb = false;
 
-            corpse.FindItemsByType<BRBomb>(false)
-                .ForEach(
-                    bomb =>
-                    {
-                        hadBomb = true;
-                        bomb.DropTo(mob, killer);
-                    }
-                );
+            foreach (var bomb in corpse.EnumerateItemsByType<BRBomb>(false))
+            {
+                hadBomb = true;
+                bomb.DropTo(mob, killer);
+            }
 
-            mob.Backpack?.FindItemsByType<BRBomb>(false)
-                .ForEach(
-                    bomb =>
-                    {
-                        hadBomb = true;
-                        bomb.DropTo(mob, killer);
-                    }
-                );
+            if (mob.Backpack != null)
+            {
+                foreach (var bomb in mob.Backpack.EnumerateItemsByType<BRBomb>(false))
+                {
+                    hadBomb = true;
+                    bomb.DropTo(mob, killer);
+                }
+            }
 
             if (killer?.Player == true)
             {

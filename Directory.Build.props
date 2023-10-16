@@ -3,10 +3,9 @@
     <PropertyGroup>
         <Authors>Kamron Batman</Authors>
         <Company>ModernUO</Company>
-        <Copyright>2019-2022</Copyright>
+        <Copyright>2019-2023</Copyright>
         <TargetFramework>net7.0</TargetFramework>
-        <Platforms>x64;arm64</Platforms>
-        <LangVersion>preview</LangVersion>
+        <LangVersion>11</LangVersion>
         <PublicRelease>true</PublicRelease>
         <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
         <NoWarn>NU1603</NoWarn>
@@ -37,7 +36,7 @@
         <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
         <SelfContained>false</SelfContained>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-        <InvariantGlobalization>true</InvariantGlobalization>
+        <InvariantGlobalization>false</InvariantGlobalization>
     </PropertyGroup>
     <PropertyGroup Condition="'$(IsWindows)'=='true' AND '$(IsX64)'=='true' AND '$(RuntimeIdentifier)'==''">
         <RuntimeIdentifier>win-x64</RuntimeIdentifier>
@@ -64,11 +63,11 @@
         <AnalysisLevel>latest</AnalysisLevel>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="Serilog" Version="2.12.0" />
+        <PackageReference Include="Serilog" Version="3.0.1" />
         <PackageReference Include="Serilog.Sinks.Async" Version="1.5.0" />
         <PackageReference Include="Serilog.Sinks.Console" Version="4.1.0" />
         <PackageReference Include="Nerdbank.GitVersioning" Condition="!Exists('packages.config')">
-            <Version>3.5.119</Version>
+            <Version>3.6.133</Version>
             <PrivateAssets>all</PrivateAssets>
         </PackageReference>
         <AdditionalFiles Include="..\..\Rules.ruleset" />

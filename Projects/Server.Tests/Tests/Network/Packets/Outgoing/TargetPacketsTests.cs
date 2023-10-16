@@ -1,4 +1,3 @@
-using System;
 using Server.Network;
 using Server.Targeting;
 using Xunit;
@@ -44,8 +43,8 @@ namespace Server.Tests.Network
             ns.ProtocolChanges |= ProtocolChanges.HighSeas;
             ns.SendMultiTargetReq(t);
 
-            var result = ns.SendPipe.Reader.TryRead();
-            AssertThat.Equal(result.Buffer[0].AsSpan(0), expected);
+            var result = ns.SendPipe.Reader.AvailableToRead();
+            AssertThat.Equal(result, expected);
         }
 
         [Fact]
@@ -60,8 +59,8 @@ namespace Server.Tests.Network
             var ns = PacketTestUtilities.CreateTestNetState();
             ns.SendMultiTargetReq(t);
 
-            var result = ns.SendPipe.Reader.TryRead();
-            AssertThat.Equal(result.Buffer[0].AsSpan(0), expected);
+            var result = ns.SendPipe.Reader.AvailableToRead();
+            AssertThat.Equal(result, expected);
         }
 
         [Fact]
@@ -71,8 +70,8 @@ namespace Server.Tests.Network
             var ns = PacketTestUtilities.CreateTestNetState();
             ns.SendCancelTarget();
 
-            var result = ns.SendPipe.Reader.TryRead();
-            AssertThat.Equal(result.Buffer[0].AsSpan(0), expected);
+            var result = ns.SendPipe.Reader.AvailableToRead();
+            AssertThat.Equal(result, expected);
         }
 
         [Fact]
@@ -84,8 +83,8 @@ namespace Server.Tests.Network
             var ns = PacketTestUtilities.CreateTestNetState();
             ns.SendTargetReq(t);
 
-            var result = ns.SendPipe.Reader.TryRead();
-            AssertThat.Equal(result.Buffer[0].AsSpan(0), expected);
+            var result = ns.SendPipe.Reader.AvailableToRead();
+            AssertThat.Equal(result, expected);
         }
     }
 }

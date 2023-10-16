@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright 2019-2022 - ModernUO Development Team                       *
+ * Copyright 2019-2023 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: OutgoingMessagePackets.cs                                       *
  *                                                                       *
@@ -41,7 +41,7 @@ public static class OutgoingMessagePackets
             return;
         }
 
-        Span<byte> buffer = stackalloc byte[GetMaxMessageLocalizedLength(args)];
+        Span<byte> buffer = stackalloc byte[GetMaxMessageLocalizedLength(args)].InitializePacket();
         var length = CreateMessageLocalized(
             buffer, serial, graphic, type, hue, font, number, name, args
         );

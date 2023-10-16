@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright 2019-2022 - ModernUO Development Team                       *
+ * Copyright 2019-2023 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: IEntity.cs                                                      *
  *                                                                       *
@@ -43,13 +43,11 @@ public class Entity : IEntity
 
     public Entity(Serial serial) => Serial = serial;
 
-    DateTime ISerializable.Created { get; set; } = Core.Now;
+    public DateTime Created { get; set; } = Core.Now;
 
-    DateTime ISerializable.LastSerialized { get; set; } = DateTime.MaxValue;
+    public long SavePosition { get; set; } = -1;
 
-    long ISerializable.SavePosition { get; set; } = -1;
-
-    BufferWriter ISerializable.SaveBuffer { get; set; }
+    public BufferWriter SaveBuffer { get; set; }
 
     public int TypeRef => -1;
 
@@ -110,12 +108,6 @@ public class Entity : IEntity
     }
 
     public void Serialize(IGenericWriter writer)
-    {
-    }
-
-    public bool ShouldExecuteAfterSerialize => false;
-
-    public void AfterSerialize()
     {
     }
 }

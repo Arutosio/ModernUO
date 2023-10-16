@@ -5,7 +5,7 @@ namespace Server.Mobiles
     [SerializationGenerator(0, false)]
     public partial class HellSteed : BaseMount
     {
-        public override string DefaultName => "a frenzied ostard";
+        public override string DefaultName => "a hellsteed";
 
         [Constructible]
         public HellSteed() : base(793, 0x3EBB, AIType.AI_Animal, FightMode.Aggressor)
@@ -13,6 +13,7 @@ namespace Server.Mobiles
             SetStats(this);
         }
 
+        public override int StepsMax => 5120;
         public override string CorpseName => "a hellsteed corpse";
         public override Poison PoisonImmune => Poison.Lethal;
 

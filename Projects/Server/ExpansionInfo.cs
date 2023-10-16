@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright 2019-2022 - ModernUO Development Team                       *
+ * Copyright 2019-2023 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: ExpansionInfo.cs                                                *
  *                                                                       *
@@ -14,10 +14,10 @@
  *************************************************************************/
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Text.Json.Serialization;
 using Server.Json;
+using Server.Maps;
 
 namespace Server;
 
@@ -47,7 +47,7 @@ public enum ClientFlags
     Malas = 0x00000008,
     Tokuno = 0x00000010,
     TerMur = 0x00000020,
-    Unk1 = 0x00000040,
+    KR = 0x00000040,
     Unk2 = 0x00000080,
     UOTD = 0x00000100
 }
@@ -108,7 +108,7 @@ public enum CharacterListFlags
     SixthCharacterSlot = 0x00000040,
     SE = 0x00000080,
     ML = 0x00000100,
-    Unk2 = 0x00000200,
+    KR = 0x00000200,
     UO3DClientType = 0x00000400,
     Unk3 = 0x00000800,
     SeventhCharacterSlot = 0x00001000,
@@ -158,7 +158,10 @@ public enum HousingFlags
 
 public class ExpansionInfo
 {
+    public const string ExpansionConfigurationPath = "Configuration/expansion.json";
+
     public static bool ForceOldAnimations { get; private set; }
+
     public static void Configure()
     {
         ForceOldAnimations = ServerConfiguration.GetSetting("expansion.forceOldAnimations", false);
@@ -188,46 +191,44 @@ public class ExpansionInfo
         return null;
     }
 
+    public static void StoreMapSelection(MapSelectionFlags mapSelectionFlags, Expansion expansion)
+    {
+        int expansionIndex = (int)expansion;
+        Table[expansionIndex].MapSelectionFlags = mapSelectionFlags;
+    }
+
+    public static void SaveConfiguration()
+    {
+        var pathToExpansionFile = Path.Combine(Core.BaseDirectory, ExpansionConfigurationPath);
+        JsonConfig.Serialize(pathToExpansionFile, GetInfo(Core.Expansion));
+    }
+
+    public static bool LoadConfiguration(out Expansion expansion)
+    {
+        var pathToExpansionFile = Path.Combine(Core.BaseDirectory, ExpansionConfigurationPath);
+
+        ExpansionInfo expansionConfig = JsonConfig.Deserialize<ExpansionInfo>(pathToExpansionFile);
+        if (expansionConfig == null)
+        {
+            expansion = Expansion.None;
+            return false;
+        }
+
+        int currentExpansionIndex = expansionConfig.Id;
+        Table[currentExpansionIndex] = expansionConfig;
+        expansion = (Expansion)currentExpansionIndex;
+        return true;
+    }
+
     static ExpansionInfo()
     {
-        var path = Path.Combine(Core.BaseDirectory, "Data/expansion.json");
+        var path = Path.Combine(Core.BaseDirectory, "Data/expansions.json");
         if (!File.Exists(path))
         {
             throw new FileNotFoundException($"Expansion file '{path}' could not be found.");
         }
 
-        var expansions = JsonConfig.Deserialize<List<ExpansionConfig>>(path);
-
-        Table = new ExpansionInfo[expansions.Count];
-
-        for (var i = 0; i < expansions.Count; i++)
-        {
-            var expansion = expansions[i];
-            if (expansion.ClientVersion != null)
-            {
-                Table[i] = new ExpansionInfo(
-                    i,
-                    expansion.Name,
-                    expansion.ClientVersion,
-                    expansion.FeatureFlags,
-                    expansion.CharacterListFlags,
-                    expansion.HousingFlags,
-                    expansion.MobileStatusVersion
-                );
-            }
-            else
-            {
-                Table[i] = new ExpansionInfo(
-                    i,
-                    expansion.Name,
-                    expansion.ClientFlags ?? ClientFlags.None,
-                    expansion.FeatureFlags,
-                    expansion.CharacterListFlags,
-                    expansion.HousingFlags,
-                    expansion.MobileStatusVersion
-                );
-            }
-        }
+        Table = JsonConfig.Deserialize<ExpansionInfo[]>(path);
     }
 
     public ExpansionInfo(
@@ -237,8 +238,9 @@ public class ExpansionInfo
         FeatureFlags supportedFeatures,
         CharacterListFlags charListFlags,
         HousingFlags customHousingFlag,
-        int mobileStatusVersion
-    ) : this(id, name, supportedFeatures, charListFlags, customHousingFlag, mobileStatusVersion) =>
+        int mobileStatusVersion,
+        MapSelectionFlags mapSelectionFlags
+    ) : this(id, name, supportedFeatures, charListFlags, customHousingFlag, mobileStatusVersion, mapSelectionFlags) =>
         ClientFlags = clientFlags;
 
     public ExpansionInfo(
@@ -248,40 +250,53 @@ public class ExpansionInfo
         FeatureFlags supportedFeatures,
         CharacterListFlags charListFlags,
         HousingFlags customHousingFlag,
-        int mobileStatusVersion
-    ) : this(id, name, supportedFeatures, charListFlags, customHousingFlag, mobileStatusVersion) =>
+        int mobileStatusVersion,
+        MapSelectionFlags mapSelectionFlags
+    ) : this(id, name, supportedFeatures, charListFlags, customHousingFlag, mobileStatusVersion, mapSelectionFlags) =>
         RequiredClient = requiredClient;
 
-    private ExpansionInfo(
+    [JsonConstructor]
+    public ExpansionInfo(
         int id,
         string name,
         FeatureFlags supportedFeatures,
-        CharacterListFlags charListFlags,
-        HousingFlags customHousingFlag,
-        int mobileStatusVersion
+        CharacterListFlags characterListFlags,
+        HousingFlags housingFlags,
+        int mobileStatusVersion,
+        MapSelectionFlags mapSelectionFlags
     )
     {
-        ID = id;
+        Id = id;
         Name = name;
 
         SupportedFeatures = supportedFeatures;
-        CharacterListFlags = charListFlags;
-        CustomHousingFlag = customHousingFlag;
+        CharacterListFlags = characterListFlags;
+        HousingFlags = housingFlags;
         MobileStatusVersion = mobileStatusVersion;
+        MapSelectionFlags = mapSelectionFlags;
     }
 
     public static ExpansionInfo CoreExpansion => GetInfo(Core.Expansion);
 
     public static ExpansionInfo[] Table { get; }
 
-    public int ID { get; }
+    public int Id { get; }
     public string Name { get; set; }
     public ClientFlags ClientFlags { get; set; }
+
+    [JsonConverter(typeof(FlagsConverter<FeatureFlags>))]
     public FeatureFlags SupportedFeatures { get; set; }
+
+    [JsonConverter(typeof(FlagsConverter<CharacterListFlags>))]
     public CharacterListFlags CharacterListFlags { get; set; }
     public ClientVersion RequiredClient { get; set; }
-    public HousingFlags CustomHousingFlag { get; set; }
+
+    [JsonConverter(typeof(FlagsConverter<HousingFlags>))]
+    public HousingFlags HousingFlags { get; set; }
     public int MobileStatusVersion { get; set; }
+
+    [JsonConverter(typeof(FlagsConverter<MapSelectionFlags>))]
+    public MapSelectionFlags MapSelectionFlags { get; set; }
 
     public static ExpansionInfo GetInfo(Expansion ex) => GetInfo((int)ex);
 
@@ -298,24 +313,4 @@ public class ExpansionInfo
     }
 
     public override string ToString() => Name;
-}
-
-public record ExpansionConfig
-{
-    public string Name { get; init; }
-
-    public ClientVersion? ClientVersion { get; init; }
-
-    public ClientFlags? ClientFlags { get; init; }
-
-    [JsonConverter(typeof(FlagsConverter<FeatureFlags>))]
-    public FeatureFlags FeatureFlags { get; init; }
-
-    [JsonConverter(typeof(FlagsConverter<CharacterListFlags>))]
-    public CharacterListFlags CharacterListFlags { get; init; }
-
-    [JsonConverter(typeof(FlagsConverter<HousingFlags>))]
-    public HousingFlags HousingFlags { get; init; }
-
-    public int MobileStatusVersion { get; set; }
 }

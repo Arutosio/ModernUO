@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using Server.Gumps;
 using Server.Mobiles;
@@ -15,10 +16,14 @@ namespace Server.SkillHandlers
         public static unsafe void Configure()
         {
             IncomingExtendedCommandPackets.RegisterExtended(0x07, true, &QuestArrow);
+        }
+
+        public static void Initialize()
+        {
             SkillInfo.Table[(int)SkillName.Tracking].Callback = OnUse;
         }
 
-        public static void QuestArrow(NetState state, CircularBufferReader reader, int packetLength)
+        public static void QuestArrow(NetState state, SpanReader reader, int packetLength)
         {
             if (state.Mobile is PlayerMobile from)
             {
@@ -79,7 +84,7 @@ namespace Server.SkillHandlers
             {
                 m_Tracker = tracker;
                 m_Target = target;
-                m_Location = new Point2D(target.X, target.Y);
+                m_Location = new Point2D(target);
                 m_Map = target.Map;
             }
         }
@@ -220,7 +225,6 @@ namespace Server.SkillHandlers
                     list.Add(m);
                 }
             }
-            eable.Free();
 
             if (list.Count > 0)
             {

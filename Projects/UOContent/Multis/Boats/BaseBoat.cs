@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using Server.Engines.Spawners;
 using Server.Items;
 using Server.Multis.Boats;
-using Server.Network;
 
 namespace Server.Multis
 {
@@ -297,14 +297,6 @@ namespace Server.Multis
             }
         }
 
-        public override bool ShouldExecuteAfterSerialize => !m_Decaying && CheckDecay();
-
-        public override void AfterSerialize()
-        {
-            base.AfterSerialize();
-            CheckDecay();
-        }
-
         public override void Serialize(IGenericWriter writer)
         {
             base.Serialize(writer);
@@ -399,6 +391,8 @@ namespace Server.Multis
             }
 
             Boats.Add(this);
+
+            Timer.DelayCall(() => CheckDecay());
         }
 
         public void RemoveKeys(Mobile m)
@@ -1378,7 +1372,7 @@ namespace Server.Multis
             if (_moveTimer != null)
             {
                 // Do not allow them to travel faster simply by respamming the command
-                if (_moveTimer.Running && _moveTimer.Interval == interval && _moveTimer.Single == singleNum)
+                if (_moveTimer.Running && _moveTimer.Interval == interval && _moveTimer.Count == singleNum)
                 {
                     return false;
                 }
@@ -1399,8 +1393,17 @@ namespace Server.Multis
                 }
 
                 _moveTimer.Stop();
-                _moveTimer.Delay = delay;
-                _moveTimer.Interval = interval;
+
+                // We can reuse the timer if it's not a single count
+                if (_moveTimer.Count == 0 && singleNum == 0)
+                {
+                    _moveTimer.Delay = delay;
+                    _moveTimer.Interval = interval;
+                }
+                else
+                {
+                    _moveTimer = new MoveTimer(this, delay, interval, singleNum);
+                }
             }
             else
             {
@@ -1523,8 +1526,6 @@ namespace Server.Multis
                         newComponents.Tiles[x][y].Length == 0 || Contains(item);
                 }
             );
-
-            eable.Free();
             return canFit;
         }
 
@@ -1813,7 +1814,7 @@ namespace Server.Multis
                     {
                         item.NoMoveHS = true;
 
-                        if (!(item is Server.Items.TillerMan or Server.Items.Hold or Plank))
+                        if (item is not (Server.Items.TillerMan or Server.Items.Hold or Plank))
                         {
                             item.Location = new Point3D(item.X + xOffset, item.Y + yOffset, item.Z);
                         }
@@ -1902,7 +1903,7 @@ namespace Server.Multis
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Dispose()
             {
-                _entities?.Free();
+                _entities?.Dispose();
                 _enumerator?.Dispose();
             }
 
@@ -1937,32 +1938,26 @@ namespace Server.Multis
                 {
                     current = _enumerator.Current;
 
-                    if (!_includeBoat && current is Server.Items.TillerMan or Server.Items.Hold or Plank)
+                    // Skip the boat, effects, spawners, or parts of the boat
+                    if (current == _boat || current is EffectItem or BaseSpawner ||
+                        !_includeBoat && current is Server.Items.TillerMan or Server.Items.Hold or Plank)
                     {
                         continue;
                     }
 
                     if (current is Item item)
                     {
-                        if (item == _boat)
-                        {
-                            continue;
-                        }
-
                         // TODO: Remove visible check and use something better, like check for spawners, or other things in the ocean we shouldn't pick up on accident
-                        if (_boat.Contains(item) && item.Visible && item.Z >= _boat.Z)
+                        if (_boat!.Contains(item) && item.Visible && item.Z >= _boat.Z)
                         {
                             _current = current;
                             return true;
                         }
                     }
-                    else if (current is Mobile m)
+                    else if (current is Mobile m && _boat!.Contains(m))
                     {
-                        if (_boat.Contains(m))
-                        {
-                            _current = current;
-                            return true;
-                        }
+                        _current = current;
+                        return true;
                     }
                 }
 
@@ -2126,18 +2121,11 @@ namespace Server.Multis
 
         private class MoveTimer : Timer
         {
-            public TimeSpan BoatMoveDelay;
-            public TimeSpan BoatMoveInterval;
-            public int Single;
-            private BaseBoat _boat;
+            private readonly BaseBoat _boat;
 
-            public MoveTimer(BaseBoat boat, TimeSpan delay, TimeSpan interval, int single = 0) : base(delay, interval, single)
-            {
-                BoatMoveInterval = interval;
-                BoatMoveDelay = delay;
-                Single = single;
+            public MoveTimer(BaseBoat boat, TimeSpan delay, TimeSpan interval, int single) : base(delay, interval, single) =>
                 _boat = boat;
-            }
+
             protected override void OnTick()
             {
                 _boat?.StopBoat();

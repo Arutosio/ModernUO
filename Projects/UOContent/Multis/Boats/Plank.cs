@@ -1,7 +1,6 @@
 using System;
 using Server.Factions;
 using Server.Multis;
-using Server.Network;
 using Server.Spells;
 
 namespace Server.Items
@@ -238,12 +237,9 @@ namespace Server.Items
             {
                 if (obj == this)
                 {
-                    eable.Free();
                     return true;
                 }
             }
-
-            eable.Free();
 
             return false;
         }

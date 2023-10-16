@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Server.Engines.Virtues;
 using Server.Factions;
 using Server.Mobiles;
-using Server.Network;
 using Server.Spells;
 using Server.Spells.Necromancy;
 using Server.Spells.Spellweaving;
@@ -228,7 +228,7 @@ namespace Server.SkillHandlers
                     creature.AIObject?.DoMove(creature.Direction);
 
                     if (from is PlayerMobile pm &&
-                        !(pm.HonorActive ||
+                        !(VirtueSystem.GetVirtues(pm)?.HonorActive == true ||
                           TransformationSpellHelper.UnderTransformation(pm, typeof(EtherealVoyageSpell))))
                     {
                         creature.Combatant = pm;
@@ -238,16 +238,11 @@ namespace Server.SkillHandlers
                 {
                     m_BeingTamed.Add(creature);
 
-                    from.LocalOverheadMessage(
-                        MessageType.Emote,
-                        0x59,
-                        1010597
-                    ); // You start to tame the creature.
-                    from.NonlocalOverheadMessage(
-                        MessageType.Emote,
-                        0x59,
-                        1010598
-                    ); // *begins taming a creature.*
+                    // You start to tame the creature.
+                    from.LocalOverheadMessage(MessageType.Emote, 0x59, 1010597);
+
+                    // *begins taming a creature.*
+                    from.NonlocalOverheadMessage(MessageType.Emote, 0x59, 1010598);
 
                     new InternalTimer(from, creature, Utility.Random(3, 2)).Start();
 

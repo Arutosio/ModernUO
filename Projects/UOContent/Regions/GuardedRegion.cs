@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Server.Logging;
+using System.Text.Json.Serialization;
 using Server.Mobiles;
 using Server.Utilities;
 
@@ -13,6 +13,7 @@ public class GuardedRegion : BaseRegion
 
     private readonly Dictionary<Mobile, GuardTimer> m_GuardCandidates = new();
 
+    [JsonConstructor] // Don't include parent, since it is special
     public GuardedRegion(string name, Map map, int priority, params Rectangle3D[] area) :
         base(name, map, priority, area) => GuardType = DefaultGuardType;
 
@@ -154,8 +155,6 @@ public class GuardedRegion : BaseRegion
     {
         var eable = focus.GetMobilesInRange<BaseGuard>(8);
         var useGuard = eable.FirstOrDefault(m => m.Focus == null);
-
-        eable.Free();
 
         if (useGuard == null)
         {
@@ -337,8 +336,6 @@ public class GuardedRegion : BaseRegion
                 break;
             }
         }
-
-        eable.Free();
     }
 
     public bool IsGuardCandidate(Mobile m) =>

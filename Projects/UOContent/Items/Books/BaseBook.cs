@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using ModernUO.Serialization;
-using Server.Buffers;
 using Server.ContextMenus;
 using Server.Gumps;
 using Server.Multis;
+using Server.Text;
 
 namespace Server.Items
 {
@@ -141,7 +141,7 @@ namespace Server.Items
 
             if ((flags & OldSaveFlags.Title) != 0)
             {
-                _title = Utility.Intern(reader.ReadString());
+                _title = reader.ReadString().Intern();
             }
             else if (content != null)
             {

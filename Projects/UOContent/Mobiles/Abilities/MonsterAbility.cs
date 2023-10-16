@@ -18,6 +18,9 @@ public abstract partial class MonsterAbility
     public virtual TimeSpan MinTriggerCooldown => TimeSpan.Zero;
     public virtual TimeSpan MaxTriggerCooldown => TimeSpan.Zero;
 
+    // To prevent reflect from harming the monster
+    public virtual bool CanTriggerAgainstSelf => false;
+
     public bool WillTrigger(MonsterAbilityTrigger trigger) => (AbilityTrigger & trigger) != 0;
 
     /// <summary>
@@ -26,7 +29,7 @@ public abstract partial class MonsterAbility
     /// <returns>Boolean indicating the ability can trigger.</returns>
     public virtual bool CanTrigger(BaseCreature source, MonsterAbilityTrigger trigger)
     {
-        if (_nextTriggerTicks?.TryGetValue(source, out var nextTrigger) == true && Core.TickCount < nextTrigger)
+        if (_nextTriggerTicks?.TryGetValue(source, out var nextTrigger) == true && nextTrigger - Core.TickCount > 0)
         {
             return false;
         }
@@ -54,7 +57,8 @@ public abstract partial class MonsterAbility
     /// </summary>
     public virtual void Trigger(MonsterAbilityTrigger trigger, BaseCreature source, Mobile target)
     {
-        if (MinTriggerCooldown <= TimeSpan.Zero && MaxTriggerCooldown <= TimeSpan.Zero)
+        if (!CanTriggerAgainstSelf && target == source ||
+            MinTriggerCooldown <= TimeSpan.Zero && MaxTriggerCooldown <= TimeSpan.Zero)
         {
             return;
         }

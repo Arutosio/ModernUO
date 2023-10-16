@@ -290,12 +290,9 @@ namespace Server.Accounting
         [CommandProperty(AccessLevel.GameMaster, readOnly: true)]
         public DateTime Created { get; set; } = Core.Now;
 
-        [CommandProperty(AccessLevel.GameMaster)]
-        DateTime ISerializable.LastSerialized { get; set; } = Core.Now;
-
         public Serial Serial { get; set; }
 
-        [AfterDeserialization]
+        [AfterDeserialization(false)]
         private void AfterDeserialization()
         {
             if (_comments?.Count == 0)
@@ -331,12 +328,6 @@ namespace Server.Accounting
             {
                 CheckYoung();
             }
-        }
-
-        public bool ShouldExecuteAfterSerialize => false;
-
-        public void AfterSerialize()
-        {
         }
 
         /// <summary>
@@ -1198,7 +1189,7 @@ namespace Server.Accounting
 
                 while ((uint)_index < (uint)localList.Length)
                 {
-                    _current = _mobiles[_index++];
+                    _current = localList[_index++];
                     if (_current?.Deleted == false)
                     {
                         return true;

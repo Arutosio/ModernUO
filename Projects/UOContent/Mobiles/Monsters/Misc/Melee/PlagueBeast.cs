@@ -2,7 +2,6 @@ using ModernUO.Serialization;
 using System;
 using Server.Engines.Plants;
 using Server.Items;
-using Server.Network;
 
 namespace Server.Mobiles
 {
@@ -180,8 +179,6 @@ namespace Server.Mobiles
                     ); // * The plague beast attempts to absorb the remains, but cannot! *
                 }
             }
-
-            eable.Free();
         }
 
         private void IncreaseHits(int hp)

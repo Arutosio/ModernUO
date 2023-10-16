@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright 2019-2022 - ModernUO Development Team                       *
+ * Copyright 2019-2023 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: ProtocolExtension.cs                                            *
  *                                                                       *
@@ -12,6 +12,8 @@
  * You should have received a copy of the GNU General Public License     *
  * along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  *************************************************************************/
+
+using System.Buffers;
 
 namespace Server.Network
 {
@@ -33,7 +35,7 @@ namespace Server.Network
             return packetHandlers;
         }
 
-        private static unsafe void DecodeBundledPacket(NetState state, CircularBufferReader reader, int packetLength)
+        private static unsafe void DecodeBundledPacket(NetState state, SpanReader reader, int packetLength)
         {
             int cmd = reader.ReadByte();
 

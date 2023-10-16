@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright 2019-2022 - ModernUO Development Team                       *
+ * Copyright 2019-2023 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: SpanReader.cs                                                   *
  *                                                                       *
@@ -30,6 +30,8 @@ public ref struct SpanReader
     public int Length { get; }
     public int Position { get; private set; }
     public int Remaining => Length - Position;
+
+    public ReadOnlySpan<byte> Buffer => _buffer;
 
     public SpanReader(ReadOnlySpan<byte> span)
     {
@@ -166,6 +168,11 @@ public ref struct SpanReader
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public string ReadString(Encoding encoding, bool safeString = false, int fixedLength = -1)
     {
+        if (fixedLength == 0)
+        {
+            return "";
+        }
+
         int byteLength = encoding.GetByteLengthForEncoding();
 
         bool isFixedLength = fixedLength > -1;
@@ -184,13 +191,15 @@ public ref struct SpanReader
         {
             // In case the remaining is not evenly divisible
             size = remaining - (remaining & (byteLength - 1));
-            int index = _buffer.Slice(Position, size).IndexOfTerminator(byteLength);
-            size = index < 0 ? size : index;
         }
 
         var span = _buffer.Slice(Position, size);
-        Position += size;
-        return TextEncoding.GetString(span, encoding, safeString);
+        var index = span.IndexOfTerminator(byteLength);
+
+        Position += isFixedLength || index < 0  ? size : index;
+
+        // The string is either as long as the first terminator character, remaining buffer size, or fixed length.
+        return TextEncoding.GetString(span[..(index < 0 ? size : index)], encoding, safeString);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

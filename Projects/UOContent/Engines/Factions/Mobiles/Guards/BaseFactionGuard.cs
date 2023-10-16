@@ -2,7 +2,6 @@ using System;
 using Server.Factions.AI;
 using Server.Items;
 using Server.Mobiles;
-using Server.Network;
 
 namespace Server.Factions
 {
@@ -466,65 +465,6 @@ namespace Server.Factions
             Orders = new Orders(this, reader);
 
             Timer.StartTimer(Register);
-        }
-    }
-
-    public class VirtualMount : IMount
-    {
-        private readonly VirtualMountItem m_Item;
-
-        public VirtualMount(VirtualMountItem item) => m_Item = item;
-
-        Mobile IMount.Rider
-        {
-            get => m_Item.Rider;
-            set { }
-        }
-
-        public virtual void OnRiderDamaged(int amount, Mobile from, bool willKill)
-        {
-        }
-    }
-
-    public class VirtualMountItem : Item, IMountItem
-    {
-        private readonly VirtualMount m_Mount;
-
-        public VirtualMountItem(Mobile mob) : base(0x3EA0)
-        {
-            Layer = Layer.Mount;
-
-            Rider = mob;
-            m_Mount = new VirtualMount(this);
-        }
-
-        public VirtualMountItem(Serial serial) : base(serial) => m_Mount = new VirtualMount(this);
-
-        public Mobile Rider { get; private set; }
-
-        public IMount Mount => m_Mount;
-
-        public override void Serialize(IGenericWriter writer)
-        {
-            base.Serialize(writer);
-
-            writer.Write(0); // version
-
-            writer.Write(Rider);
-        }
-
-        public override void Deserialize(IGenericReader reader)
-        {
-            base.Deserialize(reader);
-
-            var version = reader.ReadInt();
-
-            Rider = reader.ReadEntity<Mobile>();
-
-            if (Rider == null)
-            {
-                Delete();
-            }
         }
     }
 }

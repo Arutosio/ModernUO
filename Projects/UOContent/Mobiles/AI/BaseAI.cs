@@ -4,6 +4,7 @@ using Server.ContextMenus;
 using Server.Engines.Quests;
 using Server.Engines.Quests.Necro;
 using Server.Engines.Spawners;
+using Server.Engines.Virtues;
 using Server.Factions;
 using Server.Gumps;
 using Server.Items;
@@ -1352,7 +1353,7 @@ public abstract class BaseAI
 
         var distance = m_Mobile.GetDistanceToSqrt(target);
 
-        if (!(distance is < 1 or > 15))
+        if (distance is not (< 1 or > 15))
         {
             DoMove(m_Mobile.GetDirectionTo(target));
             return true;
@@ -1761,7 +1762,11 @@ public abstract class BaseAI
         }
 
         m_Mobile.BeginDeleteTimer();
-        m_Mobile.DropBackpack();
+
+        if (m_Mobile.CanDrop)
+        {
+            m_Mobile.DropBackpack();
+        }
 
         return true;
     }
@@ -2041,14 +2046,16 @@ public abstract class BaseAI
 
     public double TransformMoveDelay(double thinkingSpeed)
     {
+        var isControlled = m_Mobile.Controlled || m_Mobile.Summoned;
+
         // Monster is passive
-        if (m_Mobile is { Controlled: false, Summoned: false } && Math.Abs(thinkingSpeed - m_Mobile.PassiveSpeed) < 0.0001)
+        if (!isControlled && Math.Abs(thinkingSpeed - m_Mobile.PassiveSpeed) < 0.0001)
         {
-            thinkingSpeed *= 3;
+            thinkingSpeed *= 3; // Monster passive is 3x slower than thinking
         }
-        else // Movement speed is twice as slow as "thinking"
+        else if (!isControlled || m_Mobile.ControlOrder != OrderType.Follow || m_Mobile.ControlTarget != m_Mobile.ControlMaster)
         {
-            thinkingSpeed *= 2;
+            thinkingSpeed *= 2; // Monster active speed is 2x slower than thinking
         }
 
         if (!m_Mobile.IsDeadPet && (m_Mobile.ReduceSpeedWithDamage || m_Mobile.IsSubdued))
@@ -2185,8 +2192,6 @@ public abstract class BaseAI
                         ++destroyables;
                     }
                 }
-
-                eable.Free();
 
                 if (destroyables > 0)
                 {
@@ -2414,7 +2419,7 @@ public abstract class BaseAI
                 return true;
             }
         }
-        else if (!DoMove(m_Mobile.GetDirectionTo(m, run), true))
+        else if (!DoMove(m_Mobile.GetDirectionTo(m), true))
         {
             m_Path = new PathFollower(m_Mobile, m) { Mover = DoMoveImpl };
 
@@ -2695,7 +2700,7 @@ public abstract class BaseAI
             }
 
             // Ignore players with activated honor
-            if (pm?.HonorActive == true && m_Mobile.Combatant != m)
+            if (m_Mobile.Combatant != m && VirtueSystem.GetVirtues(pm)?.HonorActive == true)
             {
                 continue;
             }
@@ -2756,8 +2761,6 @@ public abstract class BaseAI
                 enemySummonVal = theirVal;
             }
         }
-
-        eable.Free();
 
         m_Mobile.FocusMob = newFocusMob ?? enemySummonMob;
         return m_Mobile.FocusMob != null;
@@ -2838,8 +2841,6 @@ public abstract class BaseAI
                 }
             }
         }
-
-        eable.Free();
     }
 
     public virtual void Deactivate()

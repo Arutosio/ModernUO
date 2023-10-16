@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright 2019-2022 - ModernUO Development Team                       *
+ * Copyright 2019-2023 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: TileMatrix.cs                                                   *
  *                                                                       *
@@ -244,7 +244,7 @@ public class TileMatrix
         {
             var eable = _map.GetMultiTilesAt(x, y);
 
-            if (eable == Map.NullEnumerable<StaticTile[]>.Instance)
+            if (eable == PooledEnumeration.NullEnumerable<StaticTile[]>.Instance)
             {
                 return tiles[x & 0x7][y & 0x7];
             }
@@ -260,8 +260,6 @@ public class TileMatrix
 
                 m_TilesList.AddRange(multiTiles);
             }
-
-            eable.Free();
 
             if (!any)
             {

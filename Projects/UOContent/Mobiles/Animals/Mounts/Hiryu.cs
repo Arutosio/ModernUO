@@ -1,5 +1,4 @@
 using ModernUO.Serialization;
-using System;
 using Server.Engines.Plants;
 using Server.Items;
 
@@ -55,6 +54,7 @@ namespace Server.Mobiles
             }
         }
 
+        public override int StepsMax => 4480;
         public override string CorpseName => "a hiryu corpse";
         public override double WeaponAbilityChance => 0.07; /* 1 in 15 chance of using per landed hit */
 

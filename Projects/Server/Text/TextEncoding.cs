@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright 2019-2022 - ModernUO Development Team                       *
+ * Copyright 2019-2023 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: TextEncoding.cs                                                 *
  *                                                                       *
@@ -16,7 +16,6 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Text;
-using Server.Buffers;
 
 namespace Server.Text;
 
@@ -116,7 +115,7 @@ public static class TextEncoding
         };
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsSafeChar(ushort c) => c >= 0x20 && c < 0xFFFE;
+    private static bool IsSafeChar(ushort c) => c is >= 0x20 and < 0xFFFE;
 
     public static string GetString(ReadOnlySpan<byte> span, Encoding encoding, bool safeString = false)
     {

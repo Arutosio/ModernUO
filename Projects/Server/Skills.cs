@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.CompilerServices;
+using System.Text.Json.Serialization;
 using Server.Network;
 
 namespace Server;
@@ -75,6 +76,13 @@ public enum SkillName
     Throwing = 57
 }
 
+public enum Stat
+{
+    Str,
+    Dex,
+    Int
+}
+
 [PropertyObject]
 public class Skill
 {
@@ -134,7 +142,7 @@ public class Skill
                 }
         }
 
-        if (Lock is < SkillLock.Up or > SkillLock.Locked)
+        if (Lock > SkillLock.Locked)
         {
             Lock = SkillLock.Up;
         }
@@ -217,8 +225,6 @@ public class Skill
         set => CapFixedPoint = (int)(value * 10.0);
     }
 
-    public static bool UseStatMods { get; set; }
-
     public int Fixed => (int)(Value * 10);
 
     [CommandProperty(AccessLevel.Counselor)]
@@ -246,25 +252,29 @@ public class Skill
         get
         {
             var baseValue = Base;
+            var statsOffset = Owner.Owner.RawStr * Info.StrScale +
+                              Owner.Owner.RawDex * Info.DexScale +
+                              Owner.Owner.RawInt * Info.IntScale;
+
             var inv = 100.0 - baseValue;
 
-            if (inv < 0.0)
+            if (inv <= 0.0)
             {
-                inv = 0.0;
+                statsOffset = 0.0;
             }
-
-            inv /= 100.0;
-
-            var statsOffset = (UseStatMods ? Owner.Owner.Str : Owner.Owner.RawStr) * Info.StrScale +
-                              (UseStatMods ? Owner.Owner.Dex : Owner.Owner.RawDex) * Info.DexScale +
-                              (UseStatMods ? Owner.Owner.Int : Owner.Owner.RawInt) * Info.IntScale;
-            var statTotal = Info.StatTotal * inv;
-
-            statsOffset *= inv;
-
-            if (statsOffset > statTotal)
+            else
             {
-                statsOffset = statTotal;
+                statsOffset *= inv;
+
+                if (Info.StatTotal > 0)
+                {
+                    var statTotal = Info.StatTotal * inv;
+
+                    if (statsOffset > statTotal)
+                    {
+                        statsOffset = statTotal;
+                    }
+                }
             }
 
             var value = baseValue + statsOffset;
@@ -324,7 +334,7 @@ public class Skill
 
     public void SetLockNoRelay(SkillLock skillLock)
     {
-        if (skillLock is < SkillLock.Up or > SkillLock.Locked)
+        if (skillLock > SkillLock.Locked)
         {
             return;
         }
@@ -384,10 +394,11 @@ public class Skill
 
 public class SkillInfo
 {
+    [JsonConstructor]
     public SkillInfo(
         int skillID, string name, double strScale, double dexScale, double intScale, string title,
         SkillUseCallback callback, double strGain, double dexGain, double intGain, double gainFactor,
-        string professionSkillName = null
+        string professionSkillName, Stat primaryStat, Stat secondaryStat
     )
     {
         Name = name;
@@ -401,8 +412,10 @@ public class SkillInfo
         DexGain = dexGain;
         IntGain = intGain;
         GainFactor = gainFactor;
-        ProfessionSkillName = professionSkillName ?? Name.Replace(" ", "");
+        ProfessionSkillName = professionSkillName ?? Name.RemoveOrdinal(" ");
         StatTotal = strScale + dexScale + intScale;
+        PrimaryStat = primaryStat;
+        SecondaryStat = secondaryStat;
     }
 
     public SkillUseCallback Callback { get; set; }
@@ -431,67 +444,11 @@ public class SkillInfo
 
     public string ProfessionSkillName { get; set; }
 
-    public static SkillInfo[] Table { get; set; } =
-    {
-        new(0, "Alchemy", 0.0, 5.0, 5.0, "Alchemist", null, 0.0, 0.5, 0.5, 1.0),
-        new(1, "Anatomy", 0.0, 0.0, 0.0, "Biologist", null, 0.15, 0.15, 0.7, 1.0),
-        new(2, "Animal Lore", 0.0, 0.0, 0.0, "Naturalist", null, 0.0, 0.0, 1.0, 1.0),
-        new(3, "Item Identification", 0.0, 0.0, 0.0, "Merchant", null, 0.0, 0.0, 1.0, 1.0, "ItemID"),
-        new(4, "Arms Lore", 0.0, 0.0, 0.0, "Weapon Master", null, 0.75, 0.15, 0.1, 1.0),
-        new(5, "Parrying", 7.5, 2.5, 0.0, "Duelist", null, 0.75, 0.25, 0.0, 1.0),
-        new(6, "Begging", 0.0, 0.0, 0.0, "Beggar", null, 0.0, 0.0, 0.0, 1.0),
-        new(7, "Blacksmithy", 10.0, 0.0, 0.0, "Blacksmith", null, 1.0, 0.0, 0.0, 1.0, "Blacksmith"),
-        new(8, "Bowcraft/Fletching", 6.0, 16.0, 0.0, "Bowyer", null, 0.6, 1.6, 0.0, 1.0, "Bowcraft"),
-        new(9, "Peacemaking", 0.0, 0.0, 0.0, "Pacifier", null, 0.0, 0.0, 0.0, 1.0),
-        new(10, "Camping", 20.0, 15.0, 15.0, "Explorer", null, 2.0, 1.5, 1.5, 1.0),
-        new(11, "Carpentry", 20.0, 5.0, 0.0, "Carpenter", null, 2.0, 0.5, 0.0, 1.0),
-        new(12, "Cartography", 0.0, 7.5, 7.5, "Cartographer", null, 0.0, 0.75, 0.75, 1.0),
-        new(13, "Cooking", 0.0, 20.0, 30.0, "Chef", null, 0.0, 2.0, 3.0, 1.0),
-        new(14, "Detecting Hidden", 0.0, 0.0, 0.0, "Scout", null, 0.0, 0.4, 0.6, 1.0),
-        new(15, "Discordance", 0.0, 2.5, 2.5, "Demoralizer", null, 0.0, 0.25, 0.25, 1.0, "Enticement"),
-        new(16, "Evaluating Intelligence", 0.0, 0.0, 0.0, "Scholar", null, 0.0, 0.0, 1.0, 1.0, "EvaluateIntelligence"),
-        new(17, "Healing", 6.0, 6.0, 8.0, "Healer", null, 0.6, 0.6, 0.8, 1.0),
-        new(18, "Fishing", 0.0, 0.0, 0.0, "Fisherman", null, 0.5, 0.5, 0.0, 1.0),
-        new(19, "Forensic Evaluation", 0.0, 0.0, 0.0, "Detective", null, 0.0, 0.2, 0.8, 1.0),
-        new(20, "Herding", 16.25, 6.25, 2.5, "Shepherd", null, 1.625, 0.625, 0.25, 1.0),
-        new(21, "Hiding", 0.0, 0.0, 0.0, "Shade", null, 0.0, 0.8, 0.2, 1.0),
-        new(22, "Provocation", 0.0, 4.5, 0.5, "Rouser", null, 0.0, 0.45, 0.05, 1.0),
-        new(23, "Inscription", 0.0, 2.0, 8.0, "Scribe", null, 0.0, 0.2, 0.8, 1.0),
-        new(24, "Lockpicking", 0.0, 25.0, 0.0, "Infiltrator", null, 0.0, 2.0, 0.0, 1.0),
-        new(25, "Magery", 0.0, 0.0, 15.0, "Mage", null, 0.0, 0.0, 1.5, 1.0),
-        new(26, "Resisting Spells", 0.0, 0.0, 0.0, "Warder", null, 0.25, 0.25, 0.5, 1.0),
-        new(27, "Tactics", 0.0, 0.0, 0.0, "Tactician", null, 0.0, 0.0, 0.0, 1.0),
-        new(28, "Snooping", 0.0, 25.0, 0.0, "Spy", null, 0.0, 2.5, 0.0, 1.0),
-        new(29, "Musicianship", 0.0, 0.0, 0.0, "Bard", null, 0.0, 0.8, 0.2, 1.0),
-        new(30, "Poisoning", 0.0, 4.0, 16.0, "Assassin", null, 0.0, 0.4, 1.6, 1.0),
-        new(31, "Archery", 2.5, 7.5, 0.0, "Archer", null, 0.25, 0.75, 0.0, 1.0),
-        new(32, "Spirit Speak", 0.0, 0.0, 0.0, "Medium", null, 0.0, 0.0, 1.0, 1.0),
-        new(33, "Stealing", 0.0, 10.0, 0.0, "Pickpocket", null, 0.0, 1.0, 0.0, 1.0),
-        new(34, "Tailoring", 3.75, 16.25, 5.0, "Tailor", null, 0.38, 1.63, 0.5, 1.0),
-        new(35, "Animal Taming", 14.0, 2.0, 4.0, "Tamer", null, 1.4, 0.2, 0.4, 1.0),
-        new(36, "Taste Identification", 0.0, 0.0, 0.0, "Praegustator", null, 0.2, 0.0, 0.8, 1.0),
-        new(37, "Tinkering", 5.0, 2.0, 3.0, "Tinker", null, 0.5, 0.2, 0.3, 1.0),
-        new(38, "Tracking", 0.0, 12.5, 12.5, "Ranger", null, 0.0, 1.25, 1.25, 1.0),
-        new(39, "Veterinary", 8.0, 4.0, 8.0, "Veterinarian", null, 0.8, 0.4, 0.8, 1.0),
-        new(40, "Swordsmanship", 7.5, 2.5, 0.0, "Swordsman", null, 0.75, 0.25, 0.0, 1.0),
-        new(41, "Mace Fighting", 9.0, 1.0, 0.0, "Armsman", null, 0.9, 0.1, 0.0, 1.0),
-        new(42, "Fencing", 4.5, 5.5, 0.0, "Fencer", null, 0.45, 0.55, 0.0, 1.0),
-        new(43, "Wrestling", 9.0, 1.0, 0.0, "Wrestler", null, 0.9, 0.1, 0.0, 1.0),
-        new(44, "Lumberjacking", 20.0, 0.0, 0.0, "Lumberjack", null, 2.0, 0.0, 0.0, 1.0),
-        new(45, "Mining", 20.0, 0.0, 0.0, "Miner", null, 2.0, 0.0, 0.0, 1.0),
-        new(46, "Meditation", 0.0, 0.0, 0.0, "Stoic", null, 0.0, 0.0, 0.0, 1.0),
-        new(47, "Stealth", 0.0, 0.0, 0.0, "Rogue", null, 0.0, 0.0, 0.0, 1.0),
-        new(48, "Remove Trap", 0.0, 0.0, 0.0, "Trap Specialist", null, 0.0, 0.0, 0.0, 1.0, "Disarm"),
-        new(49, "Necromancy", 0.0, 0.0, 0.0, "Necromancer", null, 0.0, 0.0, 0.0, 1.0),
-        new(50, "Focus", 0.0, 0.0, 0.0, "Driven", null, 0.0, 0.0, 0.0, 1.0),
-        new(51, "Chivalry", 0.0, 0.0, 0.0, "Paladin", null, 0.0, 0.0, 0.0, 1.0),
-        new(52, "Bushido", 0.0, 0.0, 0.0, "Samurai", null, 0.0, 0.0, 0.0, 1.0),
-        new(53, "Ninjitsu", 0.0, 0.0, 0.0, "Ninja", null, 0.0, 0.0, 0.0, 1.0),
-        new(54, "Spellweaving", 0.0, 0.0, 0.0, "Arcanist", null, 0.0, 0.0, 0.0, 1.0),
-        new(55, "Mysticism", 0.0, 0.0, 0.0, "Mystic", null, 0.0, 0.0, 0.0, 1.0),
-        new(56, "Imbuing", 0.0, 0.0, 0.0, "Artificer", null, 0.0, 0.0, 0.0, 1.0),
-        new(57, "Throwing", 0.0, 0.0, 0.0, "Bladeweaver", null, 0.0, 0.0, 0.0, 1.0)
-    };
+    public Stat PrimaryStat { get; set; }
+
+    public Stat SecondaryStat { get; set; }
+
+    public static SkillInfo[] Table { get; set; } = Array.Empty<SkillInfo>();
 }
 
 [PropertyObject]
@@ -532,8 +489,8 @@ public class Skills
                         Cap = 7000;
                     }
 
+                    /*m_Total =*/
                     if (version < 3)
-                        /*m_Total =*/
                     {
                         reader.ReadInt();
                     }
@@ -920,7 +877,7 @@ public class Skills
 
             while ((uint)_index < (uint)localList.Length)
             {
-                _current = _skills[_index++];
+                _current = localList[_index++];
                 if (_current != null)
                 {
                     return true;

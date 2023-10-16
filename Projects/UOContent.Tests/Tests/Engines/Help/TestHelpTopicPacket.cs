@@ -1,4 +1,3 @@
-using System;
 using Server.Engines.Help;
 using Server.Network;
 using Server.Tests;
@@ -19,8 +18,8 @@ namespace UOContent.Tests
             var ns = PacketTestUtilities.CreateTestNetState();
             ns.SendDisplayHelpTopic(topic, display);
 
-            var result = ns.SendPipe.Reader.TryRead();
-            AssertThat.Equal(result.Buffer[0].AsSpan(0), expected);
+        var result = ns.SendPipe.Reader.AvailableToRead();
+        AssertThat.Equal(result, expected);
         }
     }
 }

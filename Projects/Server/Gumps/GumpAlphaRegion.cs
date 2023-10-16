@@ -1,6 +1,6 @@
 /*************************************************************************
  * ModernUO                                                              *
- * Copyright (C) 2019-2022 - ModernUO Development Team                   *
+ * Copyright 2019-2023 - ModernUO Development Team                       *
  * Email: hi@modernuo.com                                                *
  * File: GumpAlphaRegion.cs                                              *
  *                                                                       *
@@ -36,7 +36,7 @@ public class GumpAlphaRegion : GumpEntry
 
     public int Height { get; set; }
 
-    public override void AppendTo(ref SpanWriter writer, OrderedHashSet<string> strings, scoped ref int entries, scoped ref int switches)
+    public override void AppendTo(ref SpanWriter writer, OrderedHashSet<string> strings, ref int entries, ref int switches)
     {
         writer.WriteAscii($"{{ checkertrans {X} {Y} {Width} {Height} }}");
     }
