@@ -3221,7 +3221,7 @@ namespace Server.Mobiles
                 ControlTarget = ControlMaster;
                 ControlOrder = OrderType.Follow;
 
-                ProcessDeltaQueue();
+                ProcessDelta();
                 SendIncomingPacket();
                 SendIncomingPacket();
 
@@ -3638,9 +3638,8 @@ namespace Server.Mobiles
                 return false;
             }
 
-            var eable = GetItemsInRange<Corpse>(2);
             Corpse toRummage = null;
-            foreach (var c in eable)
+            foreach (var c in GetItemsInRange<Corpse>(2))
             {
                 if (c.Items.Count > 0)
                 {
@@ -3835,7 +3834,7 @@ namespace Server.Mobiles
             Stam = StamMax;
             Mana = 0;
 
-            ProcessDeltaQueue();
+            ProcessDelta();
 
             IsDeadPet = false;
 

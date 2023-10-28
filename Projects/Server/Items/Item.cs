@@ -2241,7 +2241,6 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
 
     public virtual bool CanDecay() => Decays && Parent == null && Map != Map.Internal;
 
-
     public virtual bool OnDecay() =>
         CanDecay() && Region.Find(Location, Map).OnDecay(this);
 
@@ -2473,13 +2472,21 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
             : map.GetObjectsInRange(m_Parent == null ? m_Location : GetWorldLocation(), range);
     }
 
-    public IPooledEnumerable<Item> GetItemsInRange(int range)
-    {
-        var map = m_Map;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Map.ItemAtEnumerable<Item> GetItemsAt() =>
+        m_Map == null ? Map.ItemAtEnumerable<Item>.Empty : m_Map.GetItemsAt(m_Parent == null ? m_Location : GetWorldLocation());
 
-        return map?.GetItemsInRange(m_Parent == null ? m_Location : GetWorldLocation(), range)
-               ?? PooledEnumeration.NullEnumerable<Item>.Instance;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Map.ItemAtEnumerable<T> GetItemsAt<T>() where T : Item =>
+        m_Map == null ? Map.ItemAtEnumerable<T>.Empty : m_Map.GetItemsAt<T>(m_Parent == null ? m_Location : GetWorldLocation());
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Map.ItemBoundsEnumerable<Item> GetItemsInRange(int range) =>
+        m_Map == null ? Map.ItemBoundsEnumerable<Item>.Empty : m_Map.GetItemsInRange(m_Parent == null ? m_Location : GetWorldLocation(), range);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Map.ItemBoundsEnumerable<T> GetItemsInRange<T>(int range) where T : Item =>
+        m_Map == null ? Map.ItemBoundsEnumerable<T>.Empty : m_Map.GetItemsInRange<T>(m_Parent == null ? m_Location : GetWorldLocation(), range);
 
     public IPooledEnumerable<Mobile> GetMobilesInRange(int range)
     {
@@ -3348,6 +3355,16 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
         }
     }
 
+    private static readonly HashSet<string> _excludedProperties = new()
+    {
+        "Parent",
+        "Next",
+        "Previous",
+        "OnLinkList"
+    };
+
+    public virtual bool DupeExcludedProperty(string propertyName) => _excludedProperties.Contains(propertyName);
+
     public virtual void OnAfterDuped(Item newItem)
     {
     }
@@ -3547,10 +3564,8 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
             z = top;
         }
 
-        var eable = map.GetItemsInRange(p, 0);
-
-        var items = new List<Item>();
-        foreach (var item in eable)
+        using var items = PooledRefList<Item>.Create();
+        foreach (var item in map.GetItemsInRange(p, 0))
         {
             if (item is BaseMulti || item.ItemID > TileData.MaxItemValue)
             {
@@ -3611,7 +3626,7 @@ public class Item : IHued, IComparable<Item>, ISpawnable, IObjectPropertyListEnt
             m_OpenSlots &= ~(((1 << bitCount) - 1) << zStart);
         }
 
-        for (var i = 0; i < items.Count; ++i)
+        for (var i = 0; i < items.Count; i++)
         {
             var item = items[i];
             var id = item.ItemData;
