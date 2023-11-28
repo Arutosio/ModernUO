@@ -9,6 +9,7 @@ using Server.Misc;
 using Server.Mobiles;
 using Server.Network;
 using Server.Regions;
+using Server.Logging;
 
 namespace Server.Mobiles
 {
@@ -23,6 +24,7 @@ namespace Server.Mobiles
 
     public abstract class BaseVendor : BaseCreature, IVendor
     {
+        private static readonly ILogger logger = LogFactory.GetLogger(typeof(BaseVendor));
         private const int MaxSell = 500;
 
         private static readonly TimeSpan InventoryDecayTime = TimeSpan.FromHours(1.0);
@@ -178,7 +180,10 @@ namespace Server.Mobiles
 
                     if (gbi != null)
                     {
-                        ProcessSinglePurchase(buy, gbi, validBuy, ref controlSlots, ref fullPurchase, ref totalCost);
+                        if (!ProcessSinglePurchase(buy, gbi, validBuy, ref controlSlots, ref fullPurchase, ref totalCost))
+                        {
+                            return false;
+                        }
                     }
                     else if (item != BuyPack && item.IsChildOf(BuyPack))
                     {
@@ -194,14 +199,11 @@ namespace Server.Mobiles
 
                         foreach (var ssi in info)
                         {
-                            if (ssi.IsSellable(item))
+                            if (ssi.IsSellable(item) && ssi.IsResellable(item))
                             {
-                                if (ssi.IsResellable(item))
-                                {
-                                    totalCost += ssi.GetBuyPriceFor(item) * amount;
-                                    validBuy.Add(buy);
-                                    break;
-                                }
+                                totalCost += ssi.GetBuyPriceFor(item) * amount;
+                                validBuy.Add(buy);
+                                break;
                             }
                         }
                     }
@@ -217,9 +219,9 @@ namespace Server.Mobiles
 
                     var gbi = LookupDisplayObject(mob);
 
-                    if (gbi != null)
+                    if (gbi != null && !ProcessSinglePurchase(buy, gbi, validBuy, ref controlSlots, ref fullPurchase, ref totalCost))
                     {
-                        ProcessSinglePurchase(buy, gbi, validBuy, ref controlSlots, ref fullPurchase, ref totalCost);
+                        return false;
                     }
                 }
             } // foreach
@@ -309,28 +311,19 @@ namespace Server.Mobiles
 
                         foreach (var ssi in info)
                         {
-                            if (ssi.IsSellable(item))
+                            if (!ssi.IsSellable(item) || !ssi.IsResellable(item))
                             {
-                                if (ssi.IsResellable(item))
-                                {
-                                    Item buyItem;
-                                    if (amount >= item.Amount)
-                                    {
-                                        buyItem = item;
-                                    }
-                                    else
-                                    {
-                                        buyItem = LiftItemDupe(item, item.Amount - amount) ?? item;
-                                    }
-
-                                    if (cont?.TryDropItem(buyer, buyItem, false) != true)
-                                    {
-                                        buyItem.MoveToWorld(buyer.Location, buyer.Map);
-                                    }
-
-                                    break;
-                                }
+                                continue;
                             }
+
+                            var buyItem = amount >= item.Amount ? item : LiftItemDupe(item, item.Amount - amount) ?? item;
+
+                            if (cont?.TryDropItem(buyer, buyItem, false) != true)
+                            {
+                                buyItem.MoveToWorld(buyer.Location, buyer.Map);
+                            }
+
+                            break;
                         }
                     }
                 }
@@ -1170,7 +1163,7 @@ namespace Server.Mobiles
             return null;
         }
 
-        private void ProcessSinglePurchase(
+        private static bool ProcessSinglePurchase(
             BuyItemResponse buy, IBuyItemInfo bii, List<BuyItemResponse> validBuy,
             ref int controlSlots, ref bool fullPurchase, ref int totalCost
         )
@@ -1184,7 +1177,7 @@ namespace Server.Mobiles
 
             if (amount <= 0)
             {
-                return;
+                return false;
             }
 
             var slots = bii.ControlSlots * amount;
@@ -1196,14 +1189,30 @@ namespace Server.Mobiles
             else
             {
                 fullPurchase = false;
-                return;
+                return false;
             }
 
-            totalCost += bii.Price * amount;
+            long totalCostLong = (long)totalCost + bii.Price * amount;
+
+            if (totalCostLong > int.MaxValue)
+            {
+                logger.Error(
+                    "BaseVendor int overflow for Name/cliloc: {BuyName} ItemId: {BuyItemId} totalCost: {TotalCost} adding: {BuyPrice} * {BuyAmount}",
+                    bii.Name,
+                    bii.ItemID,
+                    totalCostLong,
+                    bii.Price,
+                    bii.Amount
+                );
+                return false;
+            }
             validBuy.Add(buy);
+            totalCost = (int)totalCostLong;
+
+            return true;
         }
 
-        private void ProcessValidPurchase(int amount, IBuyItemInfo bii, Mobile buyer, Container cont)
+        private static void ProcessValidPurchase(int amount, IBuyItemInfo bii, Mobile buyer, Container cont)
         {
             if (amount > bii.Amount)
             {
@@ -1442,56 +1451,51 @@ namespace Server.Mobiles
 
             public override void OnClick()
             {
-                if (m_Vendor.SupportsBulkOrders(m_From))
+                if (!m_Vendor.SupportsBulkOrders(m_From))
                 {
-                    var ts = m_Vendor.GetNextBulkOrder(m_From);
+                    return;
+                }
 
-                    var totalSeconds = (int)ts.TotalSeconds;
-                    var totalHours = (totalSeconds + 3599) / 3600;
-                    var totalMinutes = (totalSeconds + 59) / 60;
+                var ts = m_Vendor.GetNextBulkOrder(m_From);
 
-                    if (Core.SE ? totalMinutes == 0 : totalHours == 0)
+                var totalSeconds = ts.TotalSeconds;
+
+                // Let them get a bulk order if they are within 1 second.
+                if (totalSeconds < 1)
+                {
+                    m_From.SendLocalizedMessage(1049038); // You can get an order now.
+
+                    if (Core.AOS)
                     {
-                        m_From.SendLocalizedMessage(1049038); // You can get an order now.
+                        var bulkOrder = m_Vendor.CreateBulkOrder(m_From, true);
 
-                        if (Core.AOS)
+                        if (bulkOrder is LargeBOD bod)
                         {
-                            var bulkOrder = m_Vendor.CreateBulkOrder(m_From, true);
-
-                            if (bulkOrder is LargeBOD bod)
-                            {
-                                m_From.SendGump(new LargeBODAcceptGump(m_From, bod));
-                            }
-                            else if (bulkOrder is SmallBOD smallBod)
-                            {
-                                m_From.SendGump(new SmallBODAcceptGump(m_From, smallBod));
-                            }
+                            m_From.SendGump(new LargeBODAcceptGump(m_From, bod));
                         }
+                        else if (bulkOrder is SmallBOD smallBod)
+                        {
+                            m_From.SendGump(new SmallBODAcceptGump(m_From, smallBod));
+                        }
+                    }
+                }
+                else
+                {
+                    var oldSpeechHue = m_Vendor.SpeechHue;
+                    m_Vendor.SpeechHue = 0x3B2;
+
+                    if (Core.SE)
+                    {
+                        // An offer may be available in about ~1_minutes~ minutes.
+                        m_Vendor.SayTo(m_From, 1072058, $"{Math.Ceiling(totalSeconds / 60):F0}");
                     }
                     else
                     {
-                        var oldSpeechHue = m_Vendor.SpeechHue;
-                        m_Vendor.SpeechHue = 0x3B2;
-
-                        if (Core.SE)
-                        {
-                            m_Vendor.SayTo(
-                                m_From,
-                                1072058,
-                                totalMinutes.ToString()
-                            ); // An offer may be available in about ~1_minutes~ minutes.
-                        }
-                        else
-                        {
-                            m_Vendor.SayTo(
-                                m_From,
-                                1049039,
-                                totalHours.ToString()
-                            ); // An offer may be available in about ~1_hours~ hours.
-                        }
-
-                        m_Vendor.SpeechHue = oldSpeechHue;
+                        // An offer may be available in about ~1_hours~ hours.
+                        m_Vendor.SayTo(m_From, 1049039, $"{Math.Ceiling(totalSeconds / 3600):F0}");
                     }
+
+                    m_Vendor.SpeechHue = oldSpeechHue;
                 }
             }
         }

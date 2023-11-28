@@ -2721,9 +2721,9 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
         Span<byte> facialHairPacket = stackalloc byte[facialHairLength].InitializePacket();
 
         const int cacheLength = OutgoingMobilePackets.MobileMovingPacketCacheByteLength;
-        const int width = OutgoingMobilePackets.MobileMovingPacketLength;
 
-        var mobileMovingCache = stackalloc byte[cacheLength].InitializePackets(width);
+        Span<byte> mobileMovingCache = stackalloc byte[cacheLength];
+        mobileMovingCache.Clear();
 
         var ourState = m_NetState;
 
@@ -2864,8 +2864,6 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
             return;
         }
 
-        var eable = Map.GetClientsInRange(m_Location);
-
         Span<byte> statBufferTrue = stackalloc byte[OutgoingMobilePackets.MobileStatusCompactLength].InitializePacket();
         Span<byte> statBufferFalse = stackalloc byte[OutgoingMobilePackets.MobileStatusCompactLength].InitializePacket();
         Span<byte> hbpBuffer = stackalloc byte[OutgoingMobilePackets.MobileHealthbarPacketLength].InitializePacket();
@@ -2874,7 +2872,7 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
         Span<byte> removeEntity = stackalloc byte[OutgoingEntityPackets.RemoveEntityLength].InitializePacket();
         Span<byte> hitsPacket = stackalloc byte[OutgoingMobilePackets.MobileAttributePacketLength].InitializePacket();
 
-        foreach (var state in eable)
+        foreach (var state in Map.GetClientsInRange(m_Location))
         {
             var beholder = state.Mobile;
 
@@ -4344,25 +4342,25 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
         {
             using var moveQueue = PooledRefQueue<IEntity>.Create(2048);
             using var moveClientQueue = PooledRefQueue<Mobile>.Create(2048);
-            var eable = m_Map.GetObjectsInRange(m_Location, Core.GlobalMaxUpdateRange);
 
-            foreach (var o in eable)
+            foreach (var mob in m_Map.GetMobilesInRange(m_Location, Core.GlobalMaxUpdateRange))
             {
-                if (o == this)
+                if (mob == this)
                 {
                     continue;
                 }
 
-                if (o is Mobile mob)
+                if (mob.NetState != null)
                 {
-                    if (mob.NetState != null)
-                    {
-                        moveClientQueue.Enqueue(mob);
-                    }
-
-                    moveQueue.Enqueue(mob);
+                    moveClientQueue.Enqueue(mob);
                 }
-                else if (o is Item item && item.HandlesOnMovement)
+
+                moveQueue.Enqueue(mob);
+            }
+
+            foreach (var item in m_Map.GetItemsInRange(m_Location, Core.GlobalMaxUpdateRange))
+            {
+                if (item.HandlesOnMovement)
                 {
                     moveQueue.Enqueue(item);
                 }
@@ -4371,9 +4369,9 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
             if (moveClientQueue.Count > 0)
             {
                 const int cacheLength = OutgoingMobilePackets.MobileMovingPacketCacheByteLength;
-                const int width = OutgoingMobilePackets.MobileMovingPacketLength;
 
-                var mobileMovingCache = stackalloc byte[cacheLength].InitializePackets(width);
+                Span<byte> mobileMovingCache = stackalloc byte[cacheLength];
+                mobileMovingCache.Clear();
 
                 while (moveClientQueue.Count > 0)
                 {
@@ -4566,7 +4564,6 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
                 }
             }
 
-            SendIncomingPacket();
             SendIncomingPacket();
 
             OnAfterResurrect();
@@ -4808,13 +4805,12 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
 
         if (m_Map != null)
         {
-            var eable = m_Map.GetClientsInRange(m_Location);
             var corpseSerial = c?.Serial ?? Serial.Zero;
 
             Span<byte> deathAnimation = stackalloc byte[OutgoingMobilePackets.DeathAnimationPacketLength].InitializePacket();
             Span<byte> removeEntity = stackalloc byte[OutgoingEntityPackets.RemoveEntityLength].InitializePacket();
 
-            foreach (var state in eable)
+            foreach (var state in m_Map.GetClientsInRange(m_Location))
             {
                 if (state != m_NetState)
                 {
@@ -4863,7 +4859,7 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
         }
         else
         {
-            m_NetState.SendDeathStatus(true);
+            m_NetState.SendDeathStatus();
 
             Warmode = false;
 
@@ -4888,8 +4884,6 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
             EventSink.InvokePlayerDeath(this);
 
             ProcessDelta();
-
-            m_NetState.SendDeathStatus(false);
 
             CheckStatTimers();
         }
@@ -5104,12 +5098,11 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
 
                         if (DragEffects && map != null && root is null or Item)
                         {
-                            var eable = map.GetClientsInRange(from.Location);
                             var rootItem = root as Item;
 
                             Span<byte> buffer = stackalloc byte[OutgoingPlayerPackets.DragEffectPacketLength].InitializePacket();
 
-                            foreach (var ns in eable)
+                            foreach (var ns in map.GetClientsInRange(from.Location))
                             {
                                 if (ns.Mobile != from && ns.Mobile.CanSee(from) && ns.Mobile.InLOS(from) &&
                                     ns.Mobile.CanSee(root))
@@ -5262,11 +5255,9 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
             return;
         }
 
-        var eable = map.GetClientsInRange(m_Location);
-
         Span<byte> buffer = stackalloc byte[OutgoingPlayerPackets.DragEffectPacketLength].InitializePacket();
 
-        foreach (var ns in eable)
+        foreach (var ns in map.GetClientsInRange(m_Location))
         {
             if (ns.StygianAbyss || ns.Mobile == this ||
                 !ns.Mobile.CanSee(this) || !ns.Mobile.InLOS(this) || !ns.Mobile.CanSee(root))
@@ -5567,44 +5558,27 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
 
         if (m_Map != null)
         {
-            var eable = m_Map.GetObjectsInRange(m_Location, range);
-
-            foreach (var o in eable)
+            foreach (var heard in m_Map.GetMobilesInRange(m_Location, range))
             {
-                if (o is Mobile heard)
+                if (!heard.CanSee(this) || !NoSpeechLOS && heard.Player && !heard.InLOS(this))
                 {
-                    if (!heard.CanSee(this) || !NoSpeechLOS && heard.Player && !heard.InLOS(this))
-                    {
-                        continue;
-                    }
-
-                    if (heard.m_NetState != null)
-                    {
-                        hears.Add(heard);
-                    }
-
-                    if (heard.HandlesOnSpeech(this))
-                    {
-                        onSpeech.Add(heard);
-                    }
-
-                    for (var i = 0; i < heard.Items.Count; ++i)
-                    {
-                        var item = heard.Items[i];
-
-                        if (item.HandlesOnSpeech)
-                        {
-                            onSpeech.Add(item);
-                        }
-
-                        if (item is Container container)
-                        {
-                            AddSpeechItemsFrom(onSpeech, container);
-                        }
-                    }
+                    continue;
                 }
-                else if (o is Item item)
+
+                if (heard.m_NetState != null)
                 {
+                    hears.Add(heard);
+                }
+
+                if (heard.HandlesOnSpeech(this))
+                {
+                    onSpeech.Add(heard);
+                }
+
+                for (var i = 0; i < heard.Items.Count; ++i)
+                {
+                    var item = heard.Items[i];
+
                     if (item.HandlesOnSpeech)
                     {
                         onSpeech.Add(item);
@@ -5614,6 +5588,19 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
                     {
                         AddSpeechItemsFrom(onSpeech, container);
                     }
+                }
+            }
+
+            foreach (var item in m_Map.GetItemsInRange(m_Location, range))
+            {
+                if (item.HandlesOnSpeech)
+                {
+                    onSpeech.Add(item);
+                }
+
+                if (item is Container container)
+                {
+                    AddSpeechItemsFrom(onSpeech, container);
                 }
             }
 
@@ -6004,9 +5991,7 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
             return;
         }
 
-        var eable = map.GetClientsInRange(m_Location);
-
-        foreach (var ns in eable)
+        foreach (var ns in map.GetClientsInRange(m_Location))
         {
             if (ns.Mobile.CanSee(this))
             {
@@ -6718,11 +6703,9 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
 
         ProcessDelta();
 
-        var eable = map.GetClientsInRange(m_Location);
-
         Span<byte> buffer = stackalloc byte[OutgoingMobilePackets.MobileAnimationPacketLength].InitializePacket();
 
-        foreach (var state in eable)
+        foreach (var state in map.GetClientsInRange(m_Location))
         {
             if (!state.Mobile.CanSee(this))
             {
@@ -6799,9 +6782,7 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
 
         Span<byte> buffer = stackalloc byte[OutgoingEffectPackets.SoundPacketLength].InitializePacket();
 
-        var eable = m_Map.GetClientsInRange(m_Location);
-
-        foreach (var state in eable)
+        foreach (var state in m_Map.GetClientsInRange(m_Location))
         {
             if (state.Mobile.CanSee(this))
             {
@@ -6849,11 +6830,9 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
             return;
         }
 
-        var eable = m_Map.GetClientsInRange(m_Location);
-
         Span<byte> removeEntity = stackalloc byte[OutgoingEntityPackets.RemoveEntityLength].InitializePacket();
 
-        foreach (var state in eable)
+        foreach (var state in m_Map.GetClientsInRange(m_Location))
         {
             if (state != m_NetState && (everyone || !state.Mobile.CanSee(this)))
             {
@@ -6870,23 +6849,19 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
             return;
         }
 
-        var eable = m_Map.GetObjectsInRange(m_Location, Core.GlobalMaxUpdateRange);
-
-        foreach (var o in eable)
+        foreach (var m in m_Map.GetMobilesInRange(m_Location, Core.GlobalMaxUpdateRange))
         {
-            if (o is Mobile m)
+            if (m != this && Utility.InUpdateRange(m_Location, m.m_Location))
             {
-                if (m != this && Utility.InUpdateRange(m_Location, m.m_Location))
-                {
-                    m_NetState.SendRemoveEntity(m.Serial);
-                }
+                m_NetState.SendRemoveEntity(m.Serial);
             }
-            else if (o is Item item)
+        }
+
+        foreach (var item in m_Map.GetItemsInRange(m_Location, Core.GlobalMaxUpdateRange))
+        {
+            if (InRange(item.Location, item.GetUpdateRange(this)))
             {
-                if (InRange(item.Location, item.GetUpdateRange(this)))
-                {
-                    m_NetState.SendRemoveEntity(item.Serial);
-                }
+                m_NetState.SendRemoveEntity(item.Serial);
             }
         }
     }
@@ -6937,37 +6912,43 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
             return;
         }
 
-        var eable = m_Map.GetObjectsInRange(m_Location, Core.GlobalMaxUpdateRange);
-
-        foreach (var o in eable)
+        foreach (var m in m_Map.GetMobilesInRange(m_Location, Core.GlobalMaxUpdateRange))
         {
-            if (o is Item item)
+            if (CanSee(m) && Utility.InUpdateRange(m_Location, m.m_Location))
             {
-                if (CanSee(item) && InRange(item.Location, item.GetUpdateRange(this)))
+                ns.SendMobileIncoming(this, m);
+
+                if (ns.StygianAbyss)
                 {
-                    item.SendInfoTo(ns);
+                    ns.SendMobileHealthbar(m, Healthbar.Yellow);
+                    ns.SendMobileHealthbar(m, Healthbar.Poison);
                 }
+
+                if (m.IsDeadBondedPet)
+                {
+                    ns.SendBondedStatus(m.Serial, true);
+                }
+
+                m.SendOPLPacketTo(ns);
             }
-            else if (o is Mobile m)
+        }
+
+        foreach (var item in m_Map.GetItemsInRange(m_Location, Core.GlobalMaxUpdateRange))
+        {
+            if (CanSee(item) && InRange(item.Location, item.GetUpdateRange(this)))
             {
-                if (CanSee(m) && Utility.InUpdateRange(m_Location, m.m_Location))
-                {
-                    ns.SendMobileIncoming(this, m);
-
-                    if (ns.StygianAbyss)
-                    {
-                        ns.SendMobileHealthbar(m, Healthbar.Poison);
-                        ns.SendMobileHealthbar(m, Healthbar.Yellow);
-                    }
-
-                    if (m.IsDeadBondedPet)
-                    {
-                        ns.SendBondedStatus(m.Serial, true);
-                    }
-
-                    m.SendOPLPacketTo(ns);
-                }
+                item.SendInfoTo(ns);
             }
+        }
+
+        var range = new Rectangle2D(m_Location.X - Core.GlobalMaxUpdateRange,
+            m_Location.Y - Core.GlobalMaxUpdateRange,
+            Core.GlobalMaxUpdateRange * 2 + 1,
+            Core.GlobalMaxUpdateRange * 2 + 1);
+
+        foreach (var multi in m_Map.GetMultisInBounds(range))
+        {
+            multi.SendInfoTo(ns);
         }
     }
 
@@ -7080,11 +7061,9 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
             return;
         }
 
-        var eable = m_Map.GetClientsInRange(m_Location);
-
         Span<byte> removeEntity = stackalloc byte[OutgoingEntityPackets.RemoveEntityLength].InitializePacket();
 
-        foreach (var state in eable)
+        foreach (var state in m_Map.GetClientsInRange(m_Location))
         {
             var m = state.Mobile;
             if (!m.CanSee(this))
@@ -7309,12 +7288,9 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
         if (map != null)
         {
             // First, send a remove message to everyone who can no longer see us. (inOldRange && !inNewRange)
-
-            var eable = map.GetClientsInRange(oldLocation);
-
             Span<byte> removeEntity = stackalloc byte[OutgoingEntityPackets.RemoveEntityLength].InitializePacket();
 
-            foreach (var ns in eable)
+            foreach (var ns in map.GetClientsInRange(oldLocation))
             {
                 if (ns != m_NetState && !Utility.InUpdateRange(newLocation, ns.Mobile.Location))
                 {
@@ -7329,76 +7305,77 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
             if (ourState != null)
             {
                 // We are attached to a client, so it's a bit more complex. We need to send new items and people to ourself, and ourself to other clients
-                foreach (var o in map.GetObjectsInRange(newLocation, Core.GlobalMaxUpdateRange))
+
+                foreach (var m in map.GetMobilesInRange(newLocation, Core.GlobalMaxUpdateRange))
                 {
-                    if (o is Item item)
+                    if (m == this)
                     {
-                        var range = item.GetUpdateRange(this);
-                        var loc = item.Location;
-
-                        if (!Utility.InRange(oldLocation, loc, range) && Utility.InRange(newLocation, loc, range) &&
-                            CanSee(item))
-                        {
-                            item.SendInfoTo(ourState);
-                        }
+                        continue;
                     }
-                    else if (o != this && o is Mobile m)
+
+                    if (!Utility.InUpdateRange(newLocation, m.m_Location))
                     {
-                        if (!Utility.InUpdateRange(newLocation, m.m_Location))
+                        continue;
+                    }
+
+                    var inOldRange = Utility.InUpdateRange(oldLocation, m.m_Location);
+                    var ns = m.m_NetState;
+
+                    if (ns != null &&
+                        (isTeleport && (!ns.HighSeas || !NoMoveHS) || !inOldRange) && m.CanSee(this))
+                    {
+                        ns.SendMobileIncoming(m, this);
+
+                        if (ns.StygianAbyss)
                         {
-                            continue;
+                            ns.SendMobileHealthbar(this, Healthbar.Poison);
+                            ns.SendMobileHealthbar(this, Healthbar.Yellow);
                         }
 
-                        var inOldRange = Utility.InUpdateRange(oldLocation, m.m_Location);
-                        var ns = m.m_NetState;
-
-                        if (ns != null &&
-                            (isTeleport && (!ns.HighSeas || !NoMoveHS) || !inOldRange) && m.CanSee(this))
+                        if (IsDeadBondedPet)
                         {
-                            ns.SendMobileIncoming(m, this);
-
-                            if (ns.StygianAbyss)
-                            {
-                                ns.SendMobileHealthbar(this, Healthbar.Poison);
-                                ns.SendMobileHealthbar(this, Healthbar.Yellow);
-                            }
-
-                            if (IsDeadBondedPet)
-                            {
-                                ns.SendBondedStatus(Serial, true);
-                            }
-
-                            SendOPLPacketTo(ns);
+                            ns.SendBondedStatus(Serial, true);
                         }
 
-                        if (inOldRange || !CanSee(m))
-                        {
-                            continue;
-                        }
+                        SendOPLPacketTo(ns);
+                    }
 
-                        ourState.SendMobileIncoming(this, m);
+                    if (inOldRange || !CanSee(m))
+                    {
+                        continue;
+                    }
 
-                        if (ourState.StygianAbyss)
-                        {
-                            ourState.SendMobileHealthbar(m, Healthbar.Poison);
-                            ourState.SendMobileHealthbar(m, Healthbar.Yellow);
-                        }
+                    ourState.SendMobileIncoming(this, m);
 
-                        if (m.IsDeadBondedPet)
-                        {
-                            ourState.SendBondedStatus(m.Serial, true);
-                        }
+                    if (ourState.StygianAbyss)
+                    {
+                        ourState.SendMobileHealthbar(m, Healthbar.Poison);
+                        ourState.SendMobileHealthbar(m, Healthbar.Yellow);
+                    }
 
-                        m.SendOPLPacketTo(ourState);
+                    if (m.IsDeadBondedPet)
+                    {
+                        ourState.SendBondedStatus(m.Serial, true);
+                    }
+
+                    m.SendOPLPacketTo(ourState);
+                }
+                foreach (var item in map.GetItemsInRange(newLocation, Core.GlobalMaxUpdateRange))
+                {
+                    var range = item.GetUpdateRange(this);
+                    var loc = item.Location;
+
+                    if (!Utility.InRange(oldLocation, loc, range) && Utility.InRange(newLocation, loc, range) &&
+                        CanSee(item))
+                    {
+                        item.SendInfoTo(ourState);
                     }
                 }
             }
             else
             {
-                eable = map.GetClientsInRange(newLocation);
-
                 // We're not attached to a client, so simply send an Incoming
-                foreach (var ns in eable)
+                foreach (var ns in map.GetClientsInRange(newLocation))
                 {
                     var m = ns.Mobile;
                     if ((isTeleport && (!ns.HighSeas || !NoMoveHS) || !Utility.InUpdateRange(oldLocation, m.Location)) &&
@@ -7478,9 +7455,7 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
             return;
         }
 
-        var eable = m_Map.GetClientsInRange(m_Location);
-
-        foreach (var state in eable)
+        foreach (var state in m_Map.GetClientsInRange(m_Location))
         {
             var m = state.Mobile;
             if (m.CanSee(this))
@@ -8122,10 +8097,6 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
         m_Map == null ? Map.ItemBoundsEnumerable<T>.Empty : m_Map.GetItemsInRange<T>(m_Location, range);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IPooledEnumerable<IEntity> GetObjectsInRange(int range) =>
-        m_Map?.GetObjectsInRange(m_Location, range) ?? PooledEnumeration.NullEnumerable<IEntity>.Instance;
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Map.MobileAtEnumerable<Mobile> GetMobilesInRange() => GetMobilesInRange<Mobile>();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -8140,8 +8111,11 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
         m_Map == null ? Map.MobileBoundsEnumerable<T>.Empty : m_Map.GetMobilesInRange<T>(m_Location, range);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IPooledEnumerable<NetState> GetClientsInRange(int range) =>
-        m_Map?.GetClientsInRange(m_Location, range) ?? PooledEnumeration.NullEnumerable<NetState>.Instance;
+    public Map.ClientAtEnumerable GetClientsAt() => m_Map == null ? Map.ClientAtEnumerable.Empty : Map.GetClientsAt(m_Location);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Map.ClientBoundsEnumerable GetClientsInRange(int range) =>
+        m_Map == null ? Map.ClientBoundsEnumerable.Empty : Map.GetClientsInRange(m_Location, range);
 
     public void SayTo(Mobile to, bool ascii, string text) =>
         PrivateOverheadMessage(MessageType.Regular, SpeechHue, ascii, text, to.NetState);
@@ -8960,9 +8934,7 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
 
         Span<byte> buffer = stackalloc byte[OutgoingMessagePackets.GetMaxMessageLength(text)].InitializePacket();
 
-        var eable = m_Map.GetClientsInRange(m_Location);
-
-        foreach (var state in eable)
+        foreach (var state in m_Map.GetClientsInRange(m_Location))
         {
             if (
                 state.Mobile.AccessLevel >= accessLevel &&
@@ -8993,9 +8965,7 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
 
         Span<byte> buffer = stackalloc byte[OutgoingMessagePackets.GetMaxMessageLocalizedLength(args)].InitializePacket();
 
-        var eable = m_Map.GetClientsInRange(m_Location);
-
-        foreach (var state in eable)
+        foreach (var state in m_Map.GetClientsInRange(m_Location))
         {
             if (state.Mobile.CanSee(this) && (noLineOfSight || state.Mobile.InLOS(this)))
             {
@@ -9027,9 +8997,7 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
         Span<byte> buffer = stackalloc byte[OutgoingMessagePackets.GetMaxMessageLocalizedAffixLength(affix, args)]
             .InitializePacket();
 
-        var eable = m_Map.GetClientsInRange(m_Location);
-
-        foreach (var state in eable)
+        foreach (var state in m_Map.GetClientsInRange(m_Location))
         {
             if (
                 state.Mobile.AccessLevel >= accessLevel &&
@@ -9077,9 +9045,7 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
 
         Span<byte> buffer = stackalloc byte[OutgoingMessagePackets.GetMaxMessageLocalizedLength(args)].InitializePacket();
 
-        var eable = m_Map.GetClientsInRange(m_Location);
-
-        foreach (var state in eable)
+        foreach (var state in m_Map.GetClientsInRange(m_Location))
         {
             if (state != m_NetState && state.Mobile.CanSee(this))
             {
@@ -9106,9 +9072,7 @@ public partial class Mobile : IHued, IComparable<Mobile>, ISpawnable, IObjectPro
 
         Span<byte> buffer = stackalloc byte[OutgoingMessagePackets.GetMaxMessageLength(text)].InitializePacket();
 
-        var eable = m_Map.GetClientsInRange(m_Location);
-
-        foreach (var state in eable)
+        foreach (var state in m_Map.GetClientsInRange(m_Location))
         {
             if (state != m_NetState && state.Mobile.CanSee(this))
             {

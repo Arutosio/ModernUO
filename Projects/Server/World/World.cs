@@ -45,7 +45,7 @@ public static class World
     private static readonly GenericEntityPersistence<BaseGuild> _guildPersistence = new("Guilds", 3, 1, 0x7FFFFFFF);
 
     private static int _threadId;
-    private static readonly SerializationThreadWorker[] _threadWorkers = new SerializationThreadWorker[Environment.ProcessorCount - 1];
+    private static readonly SerializationThreadWorker[] _threadWorkers = new SerializationThreadWorker[Math.Max(Environment.ProcessorCount - 1, 1)];
     private static readonly ManualResetEvent _diskWriteHandle = new(true);
     private static readonly ConcurrentQueue<Item> _decayQueue = new();
 
@@ -413,7 +413,7 @@ public static class World
         }
         else
         {
-            logger.Warning($"Attempted to call World.AddEntity with '{entity.GetType()}'. Must be a mobile or item.");
+            logger.Warning("Attempted to call World.AddEntity with '{Entity}'. Must be a mobile or item.", entity.GetType());
         }
     }
 

@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading;
-using Microsoft.Toolkit.HighPerformance;
+using CommunityToolkit.HighPerformance;
 using Server.Compression;
 using Server.Logging;
 
@@ -330,12 +330,11 @@ namespace Server.Saves
 
                 if (archiveCreated)
                 {
-                    var elapsed = stopWatch.Elapsed.TotalSeconds;
                     logger.Information(
                         "Created {Period} archive at {Path} ({Elapsed:F2} seconds)",
                         archivePeriodStrLower,
                         archiveFilePath,
-                        elapsed
+                        stopWatch.Elapsed.TotalSeconds
                     );
 
                     var i = minimum;

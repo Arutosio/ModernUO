@@ -195,7 +195,7 @@ public abstract partial class BasePotion : Item, ICraftable, ICommodity
     public static int EnhancePotions(Mobile m)
     {
         var EP = AosAttributes.GetValue(m, AosAttribute.EnhancePotions);
-        var skillBonus = m.Skills.Alchemy.Fixed / 330 * 10;
+        var skillBonus = (int)(m.Skills.Alchemy.Value * 10 / 33);
 
         if (Core.ML && EP > 50 && m.AccessLevel <= AccessLevel.Player)
         {
@@ -212,9 +212,7 @@ public abstract partial class BasePotion : Item, ICraftable, ICommodity
             return v;
         }
 
-        var scalar = 1.0 + 0.01 * EnhancePotions(m);
-
-        return TimeSpan.FromSeconds(v.TotalSeconds * scalar);
+        return v * (1.0 + 0.01 * EnhancePotions(m));
     }
 
     public static double Scale(Mobile m, double v)

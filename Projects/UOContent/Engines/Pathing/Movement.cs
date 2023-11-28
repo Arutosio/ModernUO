@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Server.Items;
 using Server.Mobiles;
 
@@ -81,43 +83,9 @@ namespace Server.Movement
 
             var checkMobs = (m as BaseCreature)?.Controlled == false && (xForward != _goal.X || yForward != _goal.Y);
 
-            foreach (var entity in map.GetObjectsInRange(loc, 1))
+            if (checkMobs)
             {
-                if (entity is Item item)
-                {
-                    if (ignoreMovableImpassables && item.Movable && item.ItemData.ImpassableSurface)
-                    {
-                        continue;
-                    }
-
-                    if (!item.ItemData[reqFlags] || item.ItemID > TileData.MaxItemValue || item.Parent != null)
-                    {
-                        continue;
-                    }
-
-                    if (item is BaseMulti)
-                    {
-                        continue;
-                    }
-
-                    if (item.AtPoint(xStart, yStart))
-                    {
-                        itemsStart.Add(item);
-                    }
-                    else if (item.AtPoint(xForward, yForward))
-                    {
-                        itemsForward.Add(item);
-                    }
-                    else if (checkDiagonals && item.AtPoint(xLeft, yLeft))
-                    {
-                        itemsLeft.Add(item);
-                    }
-                    else if (checkDiagonals && item.AtPoint(xRight, yRight))
-                    {
-                        itemsRight.Add(item);
-                    }
-                }
-                else if (checkMobs && entity is Mobile mob)
+                foreach (var mob in map.GetMobilesInRange(loc, 1))
                 {
                     if (mob.AtPoint(xForward, yForward))
                     {
@@ -131,6 +99,41 @@ namespace Server.Movement
                     {
                         mobsRight.Add(mob);
                     }
+                }
+            }
+
+            foreach (var item in map.GetItemsInRange(loc, 1))
+            {
+                if (ignoreMovableImpassables && item.Movable && item.ItemData.ImpassableSurface)
+                {
+                    continue;
+                }
+
+                if (!item.ItemData[reqFlags] || item.ItemID > TileData.MaxItemValue || item.Parent != null)
+                {
+                    continue;
+                }
+
+                if (item is BaseMulti)
+                {
+                    continue;
+                }
+
+                if (item.AtPoint(xStart, yStart))
+                {
+                    itemsStart.Add(item);
+                }
+                else if (item.AtPoint(xForward, yForward))
+                {
+                    itemsForward.Add(item);
+                }
+                else if (checkDiagonals && item.AtPoint(xLeft, yLeft))
+                {
+                    itemsLeft.Add(item);
+                }
+                else if (checkDiagonals && item.AtPoint(xRight, yRight))
+                {
+                    itemsRight.Add(item);
                 }
             }
 
@@ -176,15 +179,15 @@ namespace Server.Movement
             return moveIsOk;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool CheckMovement(Mobile m, Direction d, out int newZ) => CheckMovement(m, m.Map, m.Location, d, out newZ);
 
         private static bool IsOk(
-            bool ignoreDoors, bool ignoreSpellFields, int ourZ, int ourTop, StaticTile[] tiles, List<Item> items
+            bool ignoreDoors, bool ignoreSpellFields, int ourZ, int ourTop, Map map, int x, int y, List<Item> items
         )
         {
-            for (var i = 0; i < tiles.Length; ++i)
+            foreach (var check in map.Tiles.GetStaticAndMultiTiles(x, y))
             {
-                var check = tiles[i];
                 var itemData = TileData.ItemTable[check.ID & TileData.MaxItemValue];
 
                 if (itemData.ImpassableSurface)
@@ -246,7 +249,6 @@ namespace Server.Movement
 
             var cantWalk = m.CantWalk;
             var canSwim = m.CanSwim;
-            var tiles = map.Tiles.GetStaticTiles(x, y, true);
             var landTile = map.Tiles.GetLandTile(x, y);
             var flags = TileData.LandTable[landTile.ID & TileData.MaxLandValue].Flags;
             var impassable = (flags & TileFlag.Impassable) != 0;
@@ -268,9 +270,8 @@ namespace Server.Movement
 
             int testTop;
 
-            for (var i = 0; i < tiles.Length; ++i)
+            foreach (var tile in map.Tiles.GetStaticAndMultiTiles(x, y))
             {
-                var tile = tiles[i];
                 var itemData = TileData.ItemTable[tile.ID & TileData.MaxItemValue];
 
                 if (m.Flying && itemData.Name.InsensitiveEquals("hover over"))
@@ -347,23 +348,14 @@ namespace Server.Movement
                     continue;
                 }
 
-                var landCheck = itemZ;
-
-                if (itemData.Height >= StepHeight)
-                {
-                    landCheck += StepHeight;
-                }
-                else
-                {
-                    landCheck += itemData.Height;
-                }
+                var landCheck = itemZ + Math.Min(itemData.Height, StepHeight);
 
                 if (considerLand && landCheck < landCenter && landCenter > ourZ && testTop > landZ)
                 {
                     continue;
                 }
 
-                if (IsOk(ignoreDoors, ignoreSpellFields, ourZ, testTop, tiles, items))
+                if (IsOk(ignoreDoors, ignoreSpellFields, ourZ, testTop, map, x, y, items))
                 {
                     newZ = ourZ;
                     moveIsOk = true;
@@ -428,23 +420,14 @@ namespace Server.Movement
                     continue;
                 }
 
-                var landCheck = itemZ;
-
-                if (itemData.Height >= StepHeight)
-                {
-                    landCheck += StepHeight;
-                }
-                else
-                {
-                    landCheck += itemData.Height;
-                }
+                var landCheck = itemZ + Math.Min(itemData.Height, StepHeight);
 
                 if (considerLand && landCheck < landCenter && landCenter > ourZ && testTop > landZ)
                 {
                     continue;
                 }
 
-                if (IsOk(ignoreDoors, ignoreSpellFields, ourZ, testTop, tiles, items))
+                if (IsOk(ignoreDoors, ignoreSpellFields, ourZ, testTop, map, x, y, items))
                 {
                     newZ = ourZ;
                     moveIsOk = true;
@@ -475,7 +458,7 @@ namespace Server.Movement
                 }
             }
 
-            if (shouldCheck && IsOk(ignoreDoors, ignoreSpellFields, landCenter, testTop, tiles, items))
+            if (shouldCheck && IsOk(ignoreDoors, ignoreSpellFields, landCenter, testTop, map, x, y, items))
             {
                 newZ = landCenter;
                 moveIsOk = true;
@@ -497,6 +480,7 @@ namespace Server.Movement
             return moveIsOk;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool CanMoveOver(Mobile m, Mobile t) =>
             !t.Alive || !m.Alive || t.IsDeadBondedPet || m.IsDeadBondedPet || t.Hidden && t.AccessLevel > AccessLevel.Player;
 
@@ -528,11 +512,8 @@ namespace Server.Movement
                 isSet = true;
             }
 
-            var staticTiles = map.Tiles.GetStaticTiles(xCheck, yCheck, true);
-
-            for (var i = 0; i < staticTiles.Length; ++i)
+            foreach (var tile in map.Tiles.GetStaticAndMultiTiles(xCheck, yCheck))
             {
-                var tile = staticTiles[i];
                 var id = TileData.ItemTable[tile.ID & TileData.MaxItemValue];
                 var calcTop = tile.Z + id.CalcHeight;
 
@@ -598,38 +579,55 @@ namespace Server.Movement
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Offset(Direction d, ref int x, ref int y)
         {
             switch (d & Direction.Mask)
             {
                 case Direction.North:
-                    --y;
-                    break;
+                    {
+                        --y;
+                        break;
+                    }
                 case Direction.South:
-                    ++y;
-                    break;
+                    {
+                        ++y;
+                        break;
+                    }
                 case Direction.West:
-                    --x;
-                    break;
+                    {
+                        --x;
+                        break;
+                    }
                 case Direction.East:
-                    ++x;
-                    break;
+                    {
+                        ++x;
+                        break;
+                    }
                 case Direction.Right:
-                    ++x;
-                    --y;
-                    break;
+                    {
+                        ++x;
+                        --y;
+                        break;
+                    }
                 case Direction.Left:
-                    --x;
-                    ++y;
-                    break;
+                    {
+                        --x;
+                        ++y;
+                        break;
+                    }
                 case Direction.Down:
-                    ++x;
-                    ++y;
-                    break;
+                    {
+                        ++x;
+                        ++y;
+                        break;
+                    }
                 case Direction.Up:
-                    --x;
-                    --y;
-                    break;
+                    {
+                        --x;
+                        --y;
+                        break;
+                    }
             }
         }
     }

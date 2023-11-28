@@ -137,8 +137,6 @@ namespace Server.Multis
                     var landTile = map.Tiles.GetLandTile(tileX, tileY);
                     var landID = landTile.ID & TileData.MaxLandValue;
 
-                    var oldTiles = map.Tiles.GetStaticTiles(tileX, tileY, true);
-
                     items.Clear();
 
                     foreach (var item in map.GetItemsAt(tileX, tileY))
@@ -202,13 +200,12 @@ namespace Server.Multis
                             hasSurface = true;
                         }
 
-                        for (var j = 0; j < oldTiles.Length; ++j)
+                        foreach (var tile in map.Tiles.GetStaticAndMultiTiles(tileX, tileY))
                         {
-                            var oldTile = oldTiles[j];
-                            var id = TileData.ItemTable[oldTile.ID & TileData.MaxItemValue];
+                            var id = TileData.ItemTable[tile.ID & TileData.MaxItemValue];
 
                             if ((id.Impassable || id.Surface && !id.Background) &&
-                                addTileTop > oldTile.Z && oldTile.Z + id.CalcHeight > addTileZ)
+                                addTileTop > tile.Z && tile.Z + id.CalcHeight > addTileZ)
                             {
                                 return HousePlacementResult.BadStatic; // Broke rule #2
                             }
@@ -341,11 +338,8 @@ namespace Server.Multis
                     }
                 }
 
-                var tiles = map.Tiles.GetStaticTiles(borderPoint.X, borderPoint.Y, true);
-
-                for (var j = 0; j < tiles.Length; ++j)
+                foreach (var tile in map.Tiles.GetStaticAndMultiTiles(borderPoint.X, borderPoint.Y))
                 {
-                    var tile = tiles[j];
                     var id = TileData.ItemTable[tile.ID & TileData.MaxItemValue];
 
                     if (id.Impassable || id.Surface && !id.Background && tile.Z + id.CalcHeight > center.Z + 2)
@@ -370,58 +364,35 @@ namespace Server.Multis
                 }
             }
 
-            var _sectors = new List<Map.Sector>();
-            var _houses = new List<BaseHouse>();
-
             for (var i = 0; i < yard.Count; i++)
             {
-                var sector = map.GetSector(yard[i]);
+                var yardPoint = yard[i];
 
-                if (!_sectors.Contains(sector))
+                foreach (var house in map.GetMultisInSector<BaseHouse>(yardPoint))
                 {
-                    _sectors.Add(sector);
-
-                    for (var j = 0; j < sector.Multis?.Count; j++)
-                    {
-                        if (sector.Multis[j] is BaseHouse)
-                        {
-                            var _house = (BaseHouse)sector.Multis[j];
-                            if (!_houses.Contains(_house))
-                            {
-                                _houses.Add(_house);
-                            }
-                        }
-                    }
-                }
-            }
-
-            for (var i = 0; i < yard.Count; ++i)
-            {
-                foreach (var b in _houses)
-                {
-                    if (b.Contains(yard[i]))
+                    if (house.Contains(yard[i]))
                     {
                         return HousePlacementResult.BadStatic; // Broke rule #3
                     }
                 }
             }
-            /*Point2D yardPoint = yard[i];
 
-              IPooledEnumerable eable = map.GetMultiTilesAt( yardPoint.X, yardPoint.Y );
-
-              foreach ( StaticTile[] tile in eable )
-              {
-                for ( int j = 0; j < tile.Length; ++j )
-                {
-                  if ((TileData.ItemTable[tile[j].ID & TileData.MaxItemValue].Flags & (TileFlag.Impassable | TileFlag.Surface)) != 0)
-                  {
-                    eable.Free();
-                    return HousePlacementResult.BadStatic; // Broke rule #3
-                  }
-                }
-              }
-
-              eable.Free();*/
+            // TODO: Should we check for MultiTilesAt each yard point?
+            // for (var i = 0; i < yard.Count; i++)
+            // {
+            //     var yardPoint = yard[i];
+            //
+            //     foreach (var tiles in map.GetMultiTilesAt(yardPoint))
+            //     {
+            //         for (int j = 0; j < tiles.Length; ++j)
+            //         {
+            //             if ((TileData.ItemTable[tiles[j].ID & TileData.MaxItemValue].Flags & (TileFlag.Impassable | TileFlag.Surface)) != 0)
+            //             {
+            //                 return HousePlacementResult.BadStatic; // Broke rule #3
+            //             }
+            //         }
+            //     }
+            // }
 
             return HousePlacementResult.Valid;
         }

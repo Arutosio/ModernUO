@@ -21,6 +21,9 @@ namespace Server;
 
 public partial class Map
 {
+    private static ValueLinkList<Mobile> _emptyMobileLinkList = new();
+    public static ref readonly ValueLinkList<Mobile> EmptyMobileLinkList => ref _emptyMobileLinkList;
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public MobileAtEnumerable<Mobile> GetMobilesAt(Point3D p) => GetMobilesAt<Mobile>(p);
 
@@ -84,8 +87,8 @@ public partial class Map
             get => new();
         }
 
-        private Map _map;
-        private Point2D _location;
+        private readonly Map _map;
+        private readonly Point2D _location;
 
         public MobileAtEnumerable(Map map, Point2D loc)
         {
@@ -110,7 +113,14 @@ public partial class Map
         {
             _started = false;
             _location = loc;
-            _linkList = ref map.GetRealSector(loc.m_X, loc.m_Y).Mobiles;
+            if (map == null)
+            {
+                _linkList = ref EmptyMobileLinkList;
+            }
+            else
+            {
+                _linkList = ref map.GetRealSector(loc.m_X, loc.m_Y).Mobiles;
+            }
             _version = 0;
             _current = null;
         }

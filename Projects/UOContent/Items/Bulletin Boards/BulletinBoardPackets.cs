@@ -31,9 +31,8 @@ namespace Server.Network
 
         public static string FormatTS(TimeSpan ts)
         {
-            var totalSeconds = (int)ts.TotalSeconds;
-            var seconds = totalSeconds % 60;
-            var minutes = totalSeconds / 60;
+            var totalSeconds = (int)Math.Round(ts.TotalSeconds);
+            var minutes = Math.DivRem(totalSeconds, 60, out var seconds);
 
             if (minutes != 0 && seconds != 0)
             {
@@ -233,7 +232,7 @@ namespace Server.Network
 
             Span<byte> textBuffer = stackalloc byte[TextEncoding.UTF8.GetMaxByteCount(longestTextLine)];
 
-            var writer = maxLength > 81920 ? new SpanWriter(maxLength) : new SpanWriter(stackalloc byte[maxLength]);
+            var writer = maxLength > 1024 ? new SpanWriter(maxLength) : new SpanWriter(stackalloc byte[maxLength]);
             writer.Write((byte)0x71); // Packet ID
             writer.Seek(2, SeekOrigin.Current);
             writer.Write((byte)(content ? 0x02 : 0x01)); // Command

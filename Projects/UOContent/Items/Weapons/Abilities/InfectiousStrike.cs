@@ -21,7 +21,7 @@ namespace Server.Items
 
         public override bool RequiresTactics(Mobile from) => false;
 
-        public override void OnHit(Mobile attacker, Mobile defender, int damage)
+        public override void OnHit(Mobile attacker, Mobile defender, int damage, WorldLocation worldLocation)
         {
             if (!Validate(attacker) || !CheckMana(attacker, true))
             {
@@ -47,7 +47,7 @@ namespace Server.Items
             --weapon.PoisonCharges;
 
             // Infectious strike special move now uses poisoning skill to help determine potency
-            var maxLevel = Math.Max(attacker.Skills.Poisoning.Fixed / 200, 0);
+            var maxLevel = Math.Max((int)(attacker.Skills.Poisoning.Value / 20), 0);
             if (p.Level > maxLevel)
             {
                 p = Poison.GetPoison(maxLevel);
